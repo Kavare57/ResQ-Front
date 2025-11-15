@@ -1,3 +1,14 @@
+import java.util.Properties
+import java.io.FileInputStream
+import java.io.File
+
+val localProperties = Properties().apply {
+    val file = File(rootDir, "local.properties")
+    if (file.exists()) {
+        FileInputStream(file).use { load(it) }
+    }
+}
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -7,7 +18,7 @@ plugins {
 
 android {
     namespace = "com.example.resq_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -28,6 +39,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        val mapsApiKey = localProperties.getProperty("GOOGLE_MAPS_API_KEY")
+            ?: System.getenv("GOOGLE_MAPS_API_KEY")
+            ?: ""
+        resValue("string", "google_maps_api_key", mapsApiKey)
     }
 
     buildTypes {
