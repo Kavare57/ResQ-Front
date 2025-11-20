@@ -1,6 +1,7 @@
 import '../../../core/api/auth_api.dart';
 import '../../../core/api/solicitantes_api.dart';
 import '../../../core/services/storage_service.dart';
+import '../../../core/services/jwt_helper.dart';
 
 class AuthController {
   final _api = AuthApi();
@@ -8,9 +9,16 @@ class AuthController {
   final _solicitantesApi = SolicitantesApi();
 
   /// Login contra el backend.
-  /// Usa POST /auth/login y siempre guarda el token para la sesión actual.
-  /// Si [remember] es true, el token persiste en el siguiente reinicio.
-  /// Si [remember] es false, el token se borra al cerrar la app.
+  /// 
+  /// FLUJO COMPLETO:
+  /// 1. POST /auth/login → obtiene token (con id_usuario, tipoUsuario, sin id_persona)
+  /// 2. POST /usuarios/obtener-id-persona → obtiene id_persona asociado
+  /// 3. Guarda en storage: token, id_usuario, tipoUsuario, id_persona
+  /// 4. Intenta sincronizar datos del solicitante
+  /// 
+  /// El id_persona puede ser null si:
+  /// - Usuario acaba de registrarse (no completó perfil aún)
+  /// - Usuario es de otro tipo (operador, etc)
   Future<({bool ok, String message})> login({
     required String email,
     required String password,
@@ -18,40 +26,94 @@ class AuthController {
   }) async {
     try {
       final res = await _api.login(email, password);
+      print('[LOGIN] Respuesta completa: $res');
       final token = res['access_token'] as String?;
 
       if (token != null) {
         // Guardamos el token SIEMPRE para que funcione la sesión actual
         await _storage.saveToken(token);
-        print('[LOGIN] Token guardado para la sesión actual (remember=$remember)');
+        print('[LOGIN] 1/4 - Token guardado para la sesión actual (remember=$remember)');
+        
+        // Guardar el flag "remember" para saber si limpiar el token al cerrar
+        await _storage.saveRemember(remember);
+        print('[LOGIN] 1/4 - Flag "recuerdame" guardado: $remember');
+        
+        // Guardar el nombre de usuario
+        final nombreDeUsuario = res['nombreDeUsuario'] as String?;
+        if (nombreDeUsuario != null) {
+          await _storage.saveNombreUsuario(nombreDeUsuario);
+          print('[LOGIN] 1/4 - Nombre usuario guardado: $nombreDeUsuario');
+        }
+        
+        // Extraer y guardar datos del JWT
+        final idUsuario = JwtHelper.getIdUsuario(token);
+        if (idUsuario != null) {
+          await _storage.saveUserId(idUsuario);
+          print('[LOGIN] 1/4 - ID usuario guardado: $idUsuario');
+        }
+        
+        final tipoUsuario = JwtHelper.getTipoUsuario(token);
+        if (tipoUsuario != null) {
+          await _storage.saveTipoUsuario(tipoUsuario);
+          print('[LOGIN] 1/4 - Tipo usuario guardado: $tipoUsuario');
+        }
+        
+        // Obtener y guardar id_persona desde el endpoint especial
+        print('[LOGIN] 2/4 - Obteniendo id_persona...');
+        try {
+          final idPersona = await _api.obtenerIdPersona(email, password);
+          if (idPersona != null) {
+            await _storage.savePersonaId(idPersona);
+            print('[LOGIN] 2/4 - ID persona guardado: $idPersona');
+          } else {
+            print('[LOGIN] 2/4 - Usuario sin persona asignada (perfil incompleto o rol diferente)');
+          }
+        } catch (e) {
+          print('[LOGIN] 2/4 - Error obteniendo id_persona: $e');
+        }
         
         // Intenta sincronizar el solicitante después del login
+        print('[LOGIN] 3/4 - Sincronizando solicitante...');
         try {
           await _solicitantesApi.sincronizarSolicitante();
+          print('[LOGIN] 3/4 - Solicitante sincronizado');
         } catch (e) {
-          print('[LOGIN] Error sincronizando solicitante: $e');
+          print('[LOGIN] 3/4 - Error sincronizando solicitante: $e');
         }
       }
 
+      print('[LOGIN] 4/4 - Completado exitosamente');
       return (ok: true, message: 'Inicio de sesión exitoso');
     } catch (e) {
       return (ok: false, message: e.toString());
     }
   }
 
-  /// Registro de nuevo usuario usando POST /usuarios.
-  /// Después del registro, hace login automático y GUARDA el token temporalmente
-  /// para que el usuario pueda completar su perfil.
-  /// El usuario deberá hacer logout y login nuevamente para "recordar" la sesión.
+  /// Registro de nuevo usuario.
+  /// 
+  /// FLUJO COMPLETO:
+  /// 1. POST /usuarios → crea usuario (id_persona=null, tipoUsuario=null)
+  /// 2. POST /auth/login → obtiene token (con id_usuario)
+  /// 3. Token guardado TEMPORALMENTE para completar perfil
+  /// 4. UI redirige a PerfilSolicitantePage(forzarCompletar=true)
+  /// 5. Usuario completa datos de persona
+  /// 6. POST /solicitantes → crea solicitante (obtiene id_persona)
+  /// 7. PUT /usuarios/{id_usuario}/asignar-persona → vincula usuario con persona
+  /// 8. Token temporal se limpia
+  /// 9. Usuario vuelve a login formal donde obtiene id_persona en el JWT
   Future<({bool ok, String message})> register({
     required String nombre,
     required String email,
     required String password,
   }) async {
     try {
-      final msg = await _api.register(nombre, email, password);
+      // PASO 1: Crear usuario
+      final usuarioCreado = await _api.register(nombre, email, password);
+      final idUsuarioNuevo = usuarioCreado['id'] as int?;
+      print('[REGISTER] 1/9 - Usuario creado: ${usuarioCreado['nombreDeUsuario']} (ID: $idUsuarioNuevo)');
 
-      // Login automático después de registrar
+      // PASO 2: Login automático después de registrar
+      print('[REGISTER] 2/9 - Iniciando login automático...');
       try {
         final resLogin = await _api.login(email, password);
         final token = resLogin['access_token'] as String?;
@@ -59,16 +121,47 @@ class AuthController {
           // Guardamos el token TEMPORALMENTE para que la sesión sea válida
           // mientras el usuario completa su perfil
           await _storage.saveToken(token);
-          print('[REGISTER] Login automático completado, token guardado temporalmente');
+          print('[REGISTER] 3/9 - Token guardado temporalmente');
+          
+          // Extraer y guardar ID usuario
+          final idUsuario = JwtHelper.getIdUsuario(token);
+          if (idUsuario != null) {
+            await _storage.saveUserId(idUsuario);
+            print('[REGISTER] 4/9 - ID usuario guardado: $idUsuario');
+          }
+          
+          // Para nuevo registro, siempre es SOLICITANTE
+          await _storage.saveTipoUsuario('SOLICITANTE');
+          print('[REGISTER] 5/9 - Tipo usuario establecido: SOLICITANTE');
+          
+          // NO intentamos obtener id_persona aquí porque el usuario
+          // aún no tiene persona creada. Eso se hará después de completar perfil.
+          print('[REGISTER] 6/9 - Usuario sin persona aún (será completada en perfil)');
+        } else {
+          print('[REGISTER] ERROR: No se obtuvo token en login automático');
+          throw Exception('Login automático falló: sin token');
         }
-      } catch (_) {
-        // Si el login automático falla, igual consideramos el registro como exitoso
+      } catch (e) {
+        print('[REGISTER] ERROR en login automático: $e');
+        // Si el login automático falla, el registro ya se completó
+        // El usuario deberá intentar login manual
+        throw Exception('Registro exitoso pero login automático falló. Por favor intenta iniciar sesión manualmente.');
       }
 
-      return (ok: true, message: msg);
+      return (ok: true, message: 'Cuenta creada correctamente');
     } catch (e) {
       return (ok: false, message: e.toString());
     }
+  }
+
+  /// Obtiene el tipoUsuario del token JWT.
+  /// Primero intenta obtenerlo del JWT (cuando el backend lo agregue).
+  /// Si no está en el JWT, retorna null (será manejado por el caller).
+  Future<String?> getTipoUsuario() async {
+    final token = await _storage.getToken();
+    if (token == null) return null;
+    
+    return JwtHelper.getTipoUsuario(token);
   }
 
   /// Verifica si hay un token válido almacenado.

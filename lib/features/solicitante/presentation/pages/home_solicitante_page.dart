@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/colors.dart';
-import '../../../../core/api/solicitantes_api.dart';
+import '../../../../core/services/storage_service.dart';
+import '../../../../core/services/jwt_helper.dart';
 import '../../../auth/application/auth_controller.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import 'perfil_solicitante_page.dart';
@@ -20,6 +21,7 @@ class HomeSolicitantePage extends StatefulWidget {
 
 class _HomeSolicitantePageState extends State<HomeSolicitantePage> {
   final _auth = AuthController();
+  final _storage = StorageService();
   late String _nombreUsuario;
   bool _cargandoNombre = true;
 
@@ -28,43 +30,57 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> {
     super.initState();
     _nombreUsuario = widget.nombreUsuario;
     print('[HOME] Iniciando...');
-    _cargarNombreUsuario();
+    // Cargar nombre de forma lazy (cuando sea necesario renderizar)
   }
 
-  Future<void> _cargarNombreUsuario() async {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Solo cargar una vez
+    if (_cargandoNombre) {
+      _cargarNombreDelStorage();
+    }
+  }
+
+  Future<void> _cargarNombreDelStorage() async {
+    if (!mounted) return;
+    
     try {
-      print('[HOME] Cargando perfil...');
-      final api = SolicitantesApi();
-      final perfil = await api.obtenerPerfilActual();
-      print('[HOME] Perfil cargado OK');
-
+      print('[HOME] Cargando nombre del storage...');
+      var nombre = await _storage.getNombreUsuario();
+      
+      // Si no está en storage, intentar obtenerlo del JWT
+      if (nombre == null || nombre.isEmpty) {
+        print('[HOME] Nombre no en storage, intentando obtener del JWT...');
+        final token = await _storage.getToken();
+        if (token != null) {
+          nombre = JwtHelper.getNombreDeUsuario(token);
+          print('[HOME] Nombre obtenido del JWT: $nombre');
+          if (nombre != null && nombre.isNotEmpty) {
+            await _storage.saveNombreUsuario(nombre);
+            print('[HOME] Nombre guardado en storage');
+          }
+        }
+      } else {
+        print('[HOME] Nombre obtenido del storage: $nombre');
+      }
+      
       if (!mounted) return;
-
+      
       setState(() {
-        final nombre = perfil['nombre'] ?? 'Usuario';
-        final apellido = perfil['apellido'] ?? '';
-        _nombreUsuario = '$nombre $apellido'.trim();
+        if (nombre != null && nombre.isNotEmpty) {
+          _nombreUsuario = nombre;
+          print('[HOME] Nombre establecido: $nombre');
+        }
         _cargandoNombre = false;
       });
     } catch (e) {
-      if (!mounted) return;
-
-      print('[HOME] Error cargando perfil: $e');
-      if (e.toString().contains('401') || e.toString().contains('Unauthorized')) {
-        await _auth.logout();
-        if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const LoginPage()),
-            (route) => false,
-          );
-        }
-        return;
+      print('[HOME] Error cargando nombre: $e');
+      if (mounted) {
+        setState(() {
+          _cargandoNombre = false;
+        });
       }
-
-      setState(() {
-        _cargandoNombre = false;
-      });
     }
   }
 

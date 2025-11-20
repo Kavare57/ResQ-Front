@@ -136,22 +136,27 @@ class _PerfilSolicitantePageState extends State<PerfilSolicitantePage> {
       print('[PERFIL] Perfil guardado exitosamente');
       
       if (widget.forzarCompletar) {
-        // Después del registro: redirigir a Login para iniciar sesión formalmente
-        // Primero mostramos confirmación
+        // Después del registro: completamos perfil y luego volvemos a login
+        // Esto asegura que el id_persona se obtenga correctamente en el próximo login
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('¡Perfil completado! Por favor, inicia sesión'),
-            duration: Duration(seconds: 2),
+            content: Text('✅ Perfil completado! Tu cuenta está lista.'),
+            duration: Duration(seconds: 3),
           ),
         );
         
-        // Esperamos a que el snackbar se muestre y luego redirigimos
-        Future.delayed(const Duration(seconds: 2), () async {
+        // Esperamos más tiempo para que todas las operaciones en backend se completen
+        // y para que el snackbar se muestre correctamente
+        Future.delayed(const Duration(seconds: 4), () async {
           if (mounted) {
-            // Aquí limpiamos el token JUSTO ANTES de redirigir
+            print('[PERFIL] Completación de perfil finalizada, limpiando sesión temporal...');
+            
+            // Limpiamos el token temporal porque ahora se debe hacer login formal
+            // En el próximo login se obtendrá id_persona correctamente
             final storage = StorageService();
             await storage.clearToken();
-            print('[PERFIL] Token limpiado, redirigiendo a LoginPage');
+            print('[PERFIL] Token temporal limpiado, redirigiendo a LoginPage');
             
             Navigator.pushAndRemoveUntil(
               context,

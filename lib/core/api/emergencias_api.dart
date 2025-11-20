@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../constants/env.dart';
+import '../services/storage_service.dart';
 
 class EmergenciasApi {
   final baseUrl = Env.apiBaseUrl;
@@ -17,24 +18,27 @@ class EmergenciasApi {
 
     final ahora = DateTime.now().toUtc().toIso8601String();
 
+    // Obtener el id_persona del storage
+    final storage = StorageService();
+    final idPersona = await storage.getPersonaId() ?? 0;
+    print('[EMERGENCIA] Usando id_persona: $idPersona');
+    
     final body = {
       'solicitante': {
-        'id': 0,
+        'id': idPersona,  // Usar el id_persona obtenido del storage
         'nombre': nombrePaciente,
-        'apellido': '',
-        'fechaNacimiento': ahora,
-        'tipoDocumento': 'CC',
-        'numeroDocumento': '0000000000',
-        'nombreDeUsuario': nombrePaciente,
-        'apellidos2': '',
-        'apellidosAnteriores': [],
+        'apellido': 'Paciente',  // Campo requerido - no puede estar vacío
+        'fechaNacimiento': '2000-01-01',  // Fecha por defecto si no se proporciona
+        'tipoDocumento': 'CEDULA',  // El backend espera CEDULA o TARJETA_DE_IDENTIDAD
+        'numeroDocumento': '0000000000',  // Documento temporal
+        'padecimientos': []
       },
       'ubicacion': {
         'latitud': lat,
         'longitud': lng,
-        'fechaHoraUbicacion': ahora,
+        'fechaHora': ahora
       },
-      'fechaHora': ahora,
+      'fechaHora': ahora
     };
 
     try {
@@ -46,11 +50,12 @@ class EmergenciasApi {
         throw Exception('Timeout (15s)');
       });
 
-      print('[EMERGENCIA] Respuesta: ${res.statusCode}');
+      print('[EMERGENCIA] Respuesta: ${res.statusCode} ${res.body}');
       if (res.statusCode == 200) {
         return jsonDecode(res.body) as Map<String, dynamic>;
       } else {
-        throw Exception('Error: ${res.statusCode}');
+        print('[EMERGENCIA] Error: ${res.body}');
+        throw Exception('Error ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
       print('[EMERGENCIA] Error: $e');

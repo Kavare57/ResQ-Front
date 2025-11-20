@@ -41,8 +41,6 @@ class _RegisterPageState extends State<RegisterPage> {
       _error = null;
     });
 
-    // IMPORTANTE: aquí se llama al backend a través del AuthController.
-    // Asegúrate que AuthController.register acepte: nombre, email, password.
     final r = await _auth.register(
       nombre: _nombre.text.trim(),
       email: _email.text.trim(),
@@ -56,20 +54,21 @@ class _RegisterPageState extends State<RegisterPage> {
       _error = r.ok ? null : r.message;
     });
 
-      if (r.ok) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Cuenta creada correctamente')),
-    );
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const PerfilSolicitantePage(
-          forzarCompletar: true,
+    if (r.ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cuenta creada correctamente')),
+      );
+      // Redirige a la página de perfil del solicitante
+      // (actualmente solo solicitantes pueden registrarse desde la app)
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const PerfilSolicitantePage(
+            forzarCompletar: true,
+          ),
         ),
-      ),
-    );
-  }
-
+      );
+    }
   }
 
   @override

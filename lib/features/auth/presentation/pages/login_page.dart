@@ -5,7 +5,10 @@ import '../../../../core/widgets/underlined_textfield.dart';
 import '../../../auth/application/auth_controller.dart';
 import '../../../../routes.dart';
 import '../../../../core/widgets/auth_sheet.dart';
+import '../../../../core/services/jwt_helper.dart';
+import '../../../../core/services/storage_service.dart';
 import '../../../solicitante/presentation/pages/home_solicitante_page.dart';
+import '../../../operador_ambulancia/presentation/pages/dashboard_operador_ambulancia_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -40,8 +43,6 @@ class _LoginPageState extends State<LoginPage> {
       _error = null;
     });
 
-    // IMPORTANTE: aquí se llama al backend a través del AuthController.
-    // Asegúrate que AuthController.login acepte: email, password, remember.
     final r = await _auth.login(
       email: _email.text.trim(),
       password: _pass.text,
@@ -59,15 +60,50 @@ class _LoginPageState extends State<LoginPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Bienvenido')),
       );
-      // Al iniciar sesión correctamente, ir al Home del solicitante
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const HomeSolicitantePage(),
-        ),
-      );
-      // Si prefieres usar rutas con nombre:
-      // Navigator.pushReplacementNamed(context, AppRoutes.homeSolicitante);
+
+      // Obtener el token para extraer tipoUsuario
+      final storage = StorageService();
+      final token = await storage.getToken();
+
+      if (token != null) {
+        // Extraer tipoUsuario del JWT
+        final tipoUsuario = JwtHelper.getTipoUsuario(token);
+        print('[LOGIN] tipoUsuario: $tipoUsuario');
+
+        // Ruteo dinámico basado en tipoUsuario
+        Widget destination;
+        
+        if (tipoUsuario != null) {
+          // Si el JWT ya incluye tipoUsuario (backend actualizado)
+          switch (tipoUsuario) {
+            case 'SOLICITANTE':
+              destination = const HomeSolicitantePage();
+              break;
+            case 'OPERADOR_AMBULANCIA':
+              destination = const DashboardOperadorAmbulanciaPage();
+              break;
+            default:
+              print('[LOGIN] tipoUsuario desconocido: $tipoUsuario');
+              destination = const HomeSolicitantePage();
+          }
+        } else {
+          // Mientras el backend no incluya tipoUsuario, por defecto ir a solicitante
+          // (porque solo solicitantes pueden registrarse públicamente por ahora)
+          print('[LOGIN] tipoUsuario no encontrado en JWT, asumiendo SOLICITANTE');
+          destination = const HomeSolicitantePage();
+        }
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => destination),
+        );
+      } else {
+        // Si no hay token, por defecto ir a home solicitante
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeSolicitantePage()),
+        );
+      }
     }
   }
 

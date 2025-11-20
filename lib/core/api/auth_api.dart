@@ -43,15 +43,15 @@ class AuthApi {
   /// REGISTRO: POST /usuarios
   /// body:
   /// {
-  ///   "nombredeusuario": "string",
+  ///   "nombreDeUsuario": "string",
   ///   "email": "user@example.com",
   ///   "contrasenaHasheada": "string"
   /// }
   ///
-  /// Respuesta 201: string plano (mensaje).
-  Future<String> register(String nombre, String email, String password) async {
+  /// Respuesta 201: Objeto Usuario creado (JSON)
+  Future<Map<String, dynamic>> register(String nombre, String email, String password) async {
     final url = Uri.parse('$baseUrl/usuarios');
-    print('[REGISTER] Iniciando...');
+    print('[REGISTER] 1/9 - Creando usuario...');
 
     try {
       final res = await http.post(
@@ -66,10 +66,13 @@ class AuthApi {
         throw Exception('Timeout en registro (10s)');
       });
 
-      print('[REGISTER] Respuesta: ${res.statusCode}');
+      print('[REGISTER] 1/9 - Respuesta: ${res.statusCode}');
       if (res.statusCode == 201) {
-        return res.body;
+        final usuarioCreado = jsonDecode(res.body) as Map<String, dynamic>;
+        print('[REGISTER] 1/9 - Usuario creado con ID: ${usuarioCreado['id']}');
+        return usuarioCreado;
       } else {
+        print('[REGISTER] Error ${res.statusCode}: ${res.body}');
         throw Exception('Error: ${res.statusCode}');
       }
     } catch (e) {
@@ -96,6 +99,44 @@ class AuthApi {
       return jsonDecode(res.body) as Map<String, dynamic>;
     } else {
       throw Exception('Token inválido: ${res.body}');
+    }
+  }
+
+  /// OBTENER ID_PERSONA: POST /usuarios/obtener-id-persona
+  /// body:
+  /// {
+  ///   "email": "user@example.com",
+  ///   "contrasena": "string"
+  /// }
+  /// Respuesta: { "id_persona": int | null }
+  Future<int?> obtenerIdPersona(String email, String contrasena) async {
+    final url = Uri.parse('$baseUrl/usuarios/obtener-id-persona');
+    print('[OBTENER_ID_PERSONA] Buscando id_persona...');
+
+    try {
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'contrasena': contrasena,
+        }),
+      ).timeout(_timeout, onTimeout: () {
+        throw Exception('Timeout obteniendo id_persona (10s)');
+      });
+
+      print('[OBTENER_ID_PERSONA] Respuesta: ${res.statusCode}');
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        return data['id_persona'] as int?;
+      } else {
+        print('[OBTENER_ID_PERSONA] Error: ${res.statusCode} ${res.body}');
+        throw Exception('Error: ${res.statusCode}');
+      }
+    } catch (e) {
+      print('[OBTENER_ID_PERSONA] Error: $e');
+      // No relanzamos el error, retornamos null para que el flujo continúe
+      return null;
     }
   }
 

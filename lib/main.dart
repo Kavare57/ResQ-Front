@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'core/services/storage_service.dart';
+import 'core/services/permissions_service.dart';
 import 'features/auth/application/auth_controller.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/solicitante/presentation/pages/home_solicitante_page.dart';
@@ -29,8 +31,23 @@ class _ResQAppState extends State<ResQApp> {
   }
 
   Future<void> _checkAuth() async {
+    // Solicitar todos los permisos necesarios al iniciar
+    print('[APP] Solicitando permisos...');
+    await PermissionsService.requestAllPermissions();
+    
     // Pregunta al AuthController si hay token válido guardado
     final startTime = DateTime.now();
+    
+    // Verificar si el usuario pidió "recuerdame"
+    final storage = StorageService();
+    final remember = await storage.getRemember() ?? false;
+    
+    // Si NO pidió recuerdame, borrar el token antes de verificar
+    if (!remember) {
+      await storage.clearToken();
+      print('[AUTH] Remember desactivado - token limpiado');
+    }
+    
     final ok = await _auth.isLoggedIn();
     final elapsed = DateTime.now().difference(startTime).inMilliseconds;
     print('Auth check completed in ${elapsed}ms');

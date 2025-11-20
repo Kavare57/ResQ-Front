@@ -1,12 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/api/emergencias_api.dart';
 import '../../../../core/constants/colors.dart';
-import '../../../../core/constants/env.dart';
+import '../../../../core/services/permissions_service.dart';
 import '../../../../routes.dart';
 
 class NuevaEmergenciaPage extends StatefulWidget {
@@ -26,9 +27,11 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
   final _nombreCtrl = TextEditingController();
   final _descripcionCtrl = TextEditingController();
   final _direccionCtrl = TextEditingController();
+  late MapController _mapController;
 
-  static const LatLng _defaultCenter = LatLng(4.710989, -74.07209);
-  GoogleMapController? _mapController;
+  // Ubicación por defecto: Bogotá, Colombia
+  static const double defaultLat = 4.710989;
+  static const double defaultLng = -74.07209;
 
   double? _lat;
   double? _lng;
@@ -39,7 +42,11 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
   @override
   void initState() {
     super.initState();
+    _mapController = MapController();
     _nombreCtrl.text = widget.nombrePacientePorDefecto;
+    // Inicializar con ubicación por defecto
+    _lat = defaultLat;
+    _lng = defaultLng;
   }
 
   @override
@@ -47,7 +54,7 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
     _nombreCtrl.dispose();
     _descripcionCtrl.dispose();
     _direccionCtrl.dispose();
-    _mapController?.dispose();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -63,7 +70,8 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       await Future.delayed(const Duration(seconds: 1));
       const fakePosition = LatLng(10.4000, -75.5000);
       _updateSelectedPosition(fakePosition);
-      await _animateCameraTo(fakePosition, zoom: 16);
+      // Animar la cámara al punto seleccionado
+      await _mapController.move(fakePosition, 16);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -75,25 +83,6 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
     }
   }
 
-  LatLng get _mapTarget =>
-      (_lat != null && _lng != null) ? LatLng(_lat!, _lng!) : _defaultCenter;
-
-  Set<Marker> get _markers {
-    final lat = _lat;
-    final lng = _lng;
-    if (lat == null || lng == null) return {};
-
-    final selected = LatLng(lat, lng);
-    return {
-      Marker(
-        markerId: const MarkerId('selected-location'),
-        position: selected,
-        draggable: true,
-        onDragEnd: _updateSelectedPosition,
-      ),
-    };
-  }
-
   void _updateSelectedPosition(LatLng position) {
     if (!mounted) return;
     setState(() {
@@ -101,16 +90,6 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       _lng = position.longitude;
       _error = null;
     });
-  }
-
-  Future<void> _animateCameraTo(LatLng target, {double? zoom}) async {
-    final controller = _mapController;
-    if (controller == null) return;
-
-    final update = zoom != null
-        ? CameraUpdate.newLatLngZoom(target, zoom)
-        : CameraUpdate.newLatLng(target);
-    await controller.animateCamera(update);
   }
 
   Future<void> _buscarDireccion() async {
@@ -123,60 +102,73 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       return;
     }
 
-    if (Env.googleMapsApiKey.isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _error = 'Configura la clave de Google Maps antes de buscar.';
-      });
-      return;
-    }
-
     setState(() {
       _locating = true;
       _error = null;
     });
 
     try {
+      // Usar Nominatim (OpenStreetMap) - Completamente gratuito
       final uri = Uri.https(
-        'maps.googleapis.com',
-        '/maps/api/geocode/json',
+        'nominatim.openstreetmap.org',
+        '/search',
         {
-          'address': query,
-          'key': Env.googleMapsApiKey,
-          'language': 'es',
-          'region': 'co',
+          'q': query,
+          'format': 'json',
+          'limit': '1',
+          'countrycodes': 'co',  // Limitar a Colombia
+          'accept-language': 'es',
         },
       );
 
-      final response = await http.get(uri).timeout(const Duration(seconds: 12));
+      print('[BUSCAR] URL: $uri');
+      final response = await http.get(
+        uri,
+        headers: {
+          'User-Agent': 'ResQ-App/1.0',
+        },
+      ).timeout(const Duration(seconds: 12));
+      
+      print('[BUSCAR] Status: ${response.statusCode}');
+      print('[BUSCAR] Response: ${response.body}');
+      
       if (response.statusCode != 200) {
-        throw Exception('Google Maps error ${response.statusCode}');
+        throw Exception('Nominatim error ${response.statusCode}: ${response.body}');
       }
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final results = data['results'] as List<dynamic>?;
+      final results = jsonDecode(response.body) as List<dynamic>?;
+      
       if (results == null || results.isEmpty) {
         if (!mounted) return;
         setState(() {
-          _error = 'No se encontraron resultados para esa direccion.';
+          _error = 'No se encontraron resultados para "$query".\nIntenta con: Barrio, Dirección, Calle...';
         });
         return;
       }
 
       final firstResult = results.first as Map<String, dynamic>;
-      final geometry = firstResult['geometry'] as Map<String, dynamic>;
-      final location = geometry['location'] as Map<String, dynamic>;
-      final target = LatLng(
-        (location['lat'] as num).toDouble(),
-        (location['lng'] as num).toDouble(),
-      );
+      final lat = double.parse(firstResult['lat'].toString());
+      final lng = double.parse(firstResult['lon'].toString());
+      final displayName = firstResult['display_name'] as String? ?? 'Ubicación encontrada';
 
-      _updateSelectedPosition(target);
-      await _animateCameraTo(target, zoom: 16);
-    } catch (e) {
+      print('[BUSCAR] Encontrado: $displayName - Lat: $lat, Lng: $lng');
+      
+      final position = LatLng(lat, lng);
+      _updateSelectedPosition(position);
+      
+      // Animar la cámara al punto buscado
+      await _mapController.move(position, 16);
+      
       if (!mounted) return;
       setState(() {
-        _error = 'No se pudo buscar la direccion ingresada.';
+        _error = null;
+      });
+      
+    } catch (e) {
+      if (!mounted) return;
+      print('[BUSCAR] Error: $e');
+      setState(() {
+        _error = 'Error al buscar: ${e.toString()}';
       });
     } finally {
       if (!mounted) return;
@@ -199,6 +191,12 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
     });
 
     try {
+      // Solicitar permisos para la llamada
+      print('[EMERGENCIA] Solicitando permisos de micrófono y cámara...');
+      final hasPermissions = await PermissionsService.requestCallPermissions();
+      
+      if (!hasPermissions && !mounted) return;
+
       final api = EmergenciasApi();
 
       final sala = await api.solicitarAmbulancia(
@@ -208,7 +206,12 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
         descripcion: _descripcionCtrl.text.trim(),
       );
 
-      // sala['room'], sala['token'], sala['identity'], sala['server_url']
+      print('[NUEVA_EMERGENCIA] Respuesta recibida:');
+      print('[NUEVA_EMERGENCIA] room: ${sala['room']}');
+      print('[NUEVA_EMERGENCIA] token: ${sala['token']?.substring(0, 20)}...');
+      print('[NUEVA_EMERGENCIA] identity: ${sala['identity']}');
+      print('[NUEVA_EMERGENCIA] server_url: ${sala['server_url']}');
+      print('[NUEVA_EMERGENCIA] Credenciales completas: $sala');
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -257,9 +260,11 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       body: SafeArea(
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-            children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // ---- MAPA ----
               Container(
                 padding: const EdgeInsets.all(16),
@@ -310,35 +315,153 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    // ========== MAPA INTERACTIVO ==========
                     ClipRRect(
                       borderRadius: BorderRadius.circular(16),
-                      child: SizedBox(
-                        height: 220,
-                        child: GoogleMap(
-                          initialCameraPosition: CameraPosition(
-                            target: _mapTarget,
-                            zoom: (_lat != null && _lng != null) ? 15.5 : 12,
-                          ),
-                          onMapCreated: (controller) {
-                            _mapController ??= controller;
-                          },
-                          onTap: _updateSelectedPosition,
-                          markers: _markers,
-                          myLocationButtonEnabled: false,
-                          myLocationEnabled: false,
-                          zoomControlsEnabled: false,
-                          mapToolbarEnabled: false,
+                      child: Container(
+                        height: 280,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Stack(
+                          children: [
+                            FlutterMap(
+                              mapController: _mapController,
+                              options: MapOptions(
+                                initialCenter: LatLng(
+                                  _lat ?? defaultLat,
+                                  _lng ?? defaultLng,
+                                ),
+                                initialZoom: 13.0,
+                                minZoom: 5.0,
+                                maxZoom: 18.0,
+                                onTap: (tapPosition, latLng) {
+                                  _updateSelectedPosition(latLng);
+                                },
+                              ),
+                              children: [
+                                TileLayer(
+                                  urlTemplate:
+                                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                  userAgentPackageName: 'com.example.resq_app',
+                                ),
+                                MarkerLayer(
+                                  markers: [
+                                    if (_lat != null && _lng != null)
+                                      Marker(
+                                        point: LatLng(_lat!, _lng!),
+                                        width: 40,
+                                        height: 40,
+                                        child: Column(
+                                          children: [
+                                            Container(
+                                              width: 40,
+                                              height: 40,
+                                              decoration: BoxDecoration(
+                                                color: ResQColors.primary500,
+                                                shape: BoxShape.circle,
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: ResQColors.primary500
+                                                        .withOpacity(0.5),
+                                                    blurRadius: 8,
+                                                    spreadRadius: 2,
+                                                  ),
+                                                ],
+                                              ),
+                                              child: const Icon(
+                                                Icons.location_on,
+                                                color: Colors.white,
+                                                size: 24,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            // Pin centrado en pantalla (visual feedback)
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 40),
+                                  child: Icon(
+                                    Icons.add_circle_outline,
+                                    color: ResQColors.primary500.withOpacity(0.3),
+                                    size: 48,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Toca el mapa para colocar el pin o escribe una dirección para centrarlo.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.black54,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Toca el mapa para seleccionar ubicación',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                        if (_lat != null && _lng != null)
+                          Text(
+                            '✓ ${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: ResQColors.primary500,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
                     ),
+                    // ===================================
+                    const SizedBox(height: 12),
+                    // Ubicación seleccionada - info adicional
+                    if (_lat != null && _lng != null)
+                      Container(
+                        decoration: BoxDecoration(
+                          color: ResQColors.primary50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: ResQColors.primary200,
+                            width: 1,
+                          ),
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle,
+                              color: ResQColors.primary500,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Ubicación seleccionada correctamente',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: ResQColors.primary500,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -452,6 +575,7 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),
