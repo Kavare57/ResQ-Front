@@ -7,6 +7,8 @@ import '../../../../routes.dart';
 import '../../../../core/widgets/auth_sheet.dart';
 import '../../../../core/services/jwt_helper.dart';
 import '../../../../core/services/storage_service.dart';
+import '../../../../core/services/error_handler.dart';
+import '../../../../core/widgets/error_display_widget.dart';
 import '../../../solicitante/presentation/pages/home_solicitante_page.dart';
 import '../../../operador_ambulancia/presentation/pages/dashboard_operador_ambulancia_page.dart';
 
@@ -43,67 +45,78 @@ class _LoginPageState extends State<LoginPage> {
       _error = null;
     });
 
-    final r = await _auth.login(
-      email: _email.text.trim(),
-      password: _pass.text,
-      remember: _remember,
-    );
-
-    if (!mounted) return;
-
-    setState(() {
-      _loading = false;
-      _error = r.ok ? null : r.message;
-    });
-
-    if (r.ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bienvenido')),
+    try {
+      final r = await _auth.login(
+        email: _email.text.trim(),
+        password: _pass.text,
+        remember: _remember,
       );
 
-      // Obtener el token para extraer tipoUsuario
-      final storage = StorageService();
-      final token = await storage.getToken();
+      if (!mounted) return;
 
-      if (token != null) {
-        // Extraer tipoUsuario del JWT
-        final tipoUsuario = JwtHelper.getTipoUsuario(token);
-        print('[LOGIN] tipoUsuario: $tipoUsuario');
+      setState(() {
+        _loading = false;
+        _error = r.ok ? null : r.message;
+      });
 
-        // Ruteo dinámico basado en tipoUsuario
-        Widget destination;
-        
-        if (tipoUsuario != null) {
-          // Si el JWT ya incluye tipoUsuario (backend actualizado)
-          switch (tipoUsuario) {
-            case 'SOLICITANTE':
-              destination = const HomeSolicitantePage();
-              break;
-            case 'OPERADOR_AMBULANCIA':
-              destination = const DashboardOperadorAmbulanciaPage();
-              break;
-            default:
-              print('[LOGIN] tipoUsuario desconocido: $tipoUsuario');
-              destination = const HomeSolicitantePage();
+      if (r.ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bienvenido')),
+        );
+
+        // Obtener el token para extraer tipoUsuario
+        final storage = StorageService();
+        final token = await storage.getToken();
+
+        if (token != null) {
+          // Extraer tipoUsuario del JWT
+          final tipoUsuario = JwtHelper.getTipoUsuario(token);
+          print('[LOGIN] tipoUsuario: $tipoUsuario');
+
+          // Ruteo dinámico basado en tipoUsuario
+          Widget destination;
+          
+          if (tipoUsuario != null) {
+            // Si el JWT ya incluye tipoUsuario (backend actualizado)
+            switch (tipoUsuario) {
+              case 'SOLICITANTE':
+                destination = const HomeSolicitantePage();
+                break;
+              case 'OPERADOR_AMBULANCIA':
+                destination = const DashboardOperadorAmbulanciaPage();
+                break;
+              default:
+                print('[LOGIN] tipoUsuario desconocido: $tipoUsuario');
+                destination = const HomeSolicitantePage();
+            }
+          } else {
+            // Mientras el backend no incluya tipoUsuario, por defecto ir a solicitante
+            // (porque solo solicitantes pueden registrarse públicamente por ahora)
+            print('[LOGIN] tipoUsuario no encontrado en JWT, asumiendo SOLICITANTE');
+            destination = const HomeSolicitantePage();
           }
-        } else {
-          // Mientras el backend no incluya tipoUsuario, por defecto ir a solicitante
-          // (porque solo solicitantes pueden registrarse públicamente por ahora)
-          print('[LOGIN] tipoUsuario no encontrado en JWT, asumiendo SOLICITANTE');
-          destination = const HomeSolicitantePage();
-        }
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => destination),
-        );
-      } else {
-        // Si no hay token, por defecto ir a home solicitante
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeSolicitantePage()),
-        );
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => destination),
+          );
+        } else {
+          // Si no hay token, por defecto ir a home solicitante
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const HomeSolicitantePage()),
+          );
+        }
       }
+    } catch (e, stackTrace) {
+      ErrorHandler.logError('[LOGIN]', e, stackTrace);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = ErrorHandler.getErrorMessage(e);
+      });
     }
   }
 
@@ -192,10 +205,15 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   if (_error != null)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: Colors.red),
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: ErrorDisplayWidget(
+                        errorMessage: _error!,
+                        showRetryButton: false,
+                        onDismiss: () {
+                          setState(() {
+                            _error = null;
+                          });
+                        },
                       ),
                     ),
                   const SizedBox(height: 8),

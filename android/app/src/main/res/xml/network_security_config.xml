@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow cleartext traffic for development debugging -->
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- LiveKit cloud domain -->
+        <domain includeSubdomains="true">resq-poyiq9j7.livekit.cloud</domain>
+    </domain-config>
+    
+    <!-- Trust system certificates for development -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>

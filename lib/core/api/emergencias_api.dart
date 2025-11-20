@@ -13,7 +13,7 @@ class EmergenciasApi {
     required String nombrePaciente,
     required String descripcion,
   }) async {
-    final url = Uri.parse('$baseUrl/emergencias/solicitar-ambulancia');
+    final url = Uri.parse('$baseUrl/solicitudes/solicitar-ambulancia');
     print('[EMERGENCIA] Solicitando ambulancia...');
 
     final ahora = DateTime.now().toUtc().toIso8601String();
@@ -22,6 +22,13 @@ class EmergenciasApi {
     final storage = StorageService();
     final idPersona = await storage.getPersonaId() ?? 0;
     print('[EMERGENCIA] Usando id_persona: $idPersona');
+    
+    // Obtener el token JWT para autenticación
+    final token = await storage.getToken();
+    if (token == null) {
+      throw Exception('No hay token de autenticación disponible');
+    }
+    print('[EMERGENCIA] Token obtenido: ${token.substring(0, 20)}...');
     
     final body = {
       'solicitante': {
@@ -44,7 +51,10 @@ class EmergenciasApi {
     try {
       final res = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
         body: jsonEncode(body),
       ).timeout(_timeout, onTimeout: () {
         throw Exception('Timeout (15s)');

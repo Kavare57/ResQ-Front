@@ -37,7 +37,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   http: ^1.2.2
   url_launcher: ^6.3.0
-  livekit_client: ^2.5.3
+  livekit_client: ^2.1.0
   flutter_map: ^7.0.0
   latlong2: ^0.9.1
 

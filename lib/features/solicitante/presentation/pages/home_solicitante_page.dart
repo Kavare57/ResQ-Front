@@ -47,19 +47,34 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> {
     
     try {
       print('[HOME] Cargando nombre del storage...');
-      var nombre = await _storage.getNombreUsuario();
       
-      // Si no está en storage, intentar obtenerlo del JWT
+      // Primero intentar del storage con timeout
+      String? nombre;
+      try {
+        nombre = await _storage.getNombreUsuario().timeout(
+          const Duration(milliseconds: 500),
+          onTimeout: () => null,
+        );
+      } catch (e) {
+        print('[HOME] Error obteniendo nombre del storage: $e');
+        nombre = null;
+      }
+      
+      // Si no está en storage, intentar obtenerlo del JWT (rápido, no es async)
       if (nombre == null || nombre.isEmpty) {
         print('[HOME] Nombre no en storage, intentando obtener del JWT...');
-        final token = await _storage.getToken();
-        if (token != null) {
-          nombre = JwtHelper.getNombreDeUsuario(token);
-          print('[HOME] Nombre obtenido del JWT: $nombre');
-          if (nombre != null && nombre.isNotEmpty) {
-            await _storage.saveNombreUsuario(nombre);
-            print('[HOME] Nombre guardado en storage');
+        try {
+          final token = await _storage.getToken();
+          if (token != null) {
+            nombre = JwtHelper.getNombreDeUsuario(token);
+            print('[HOME] Nombre obtenido del JWT: $nombre');
+            if (nombre != null && nombre.isNotEmpty) {
+              // Guardar en background sin esperar
+              _storage.saveNombreUsuario(nombre);
+            }
           }
+        } catch (e) {
+          print('[HOME] Error obteniendo token: $e');
         }
       } else {
         print('[HOME] Nombre obtenido del storage: $nombre');

@@ -8,7 +8,9 @@ import 'package:latlong2/latlong.dart';
 import '../../../../core/api/emergencias_api.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../core/services/permissions_service.dart';
-import '../../../../routes.dart';
+import '../../../../core/services/error_handler.dart';
+import '../../../../core/widgets/error_display_widget.dart';
+import '../../../llamada/presentation/pages/llamada_page.dart';
 
 class NuevaEmergenciaPage extends StatefulWidget {
   final String nombrePacientePorDefecto;
@@ -72,10 +74,11 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       _updateSelectedPosition(fakePosition);
       // Animar la cámara al punto seleccionado
       await _mapController.move(fakePosition, 16);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      ErrorHandler.logError('[UBICACION]', e, stackTrace);
       if (!mounted) return;
       setState(() {
-        _error = 'No se pudo obtener tu ubicacion';
+        _error = ErrorHandler.getErrorMessage(e);
       });
     } finally {
       if (!mounted) return;
@@ -164,11 +167,11 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
         _error = null;
       });
       
-    } catch (e) {
+    } catch (e, stackTrace) {
+      ErrorHandler.logError('[BUSCAR-UBICACION]', e, stackTrace);
       if (!mounted) return;
-      print('[BUSCAR] Error: $e');
       setState(() {
-        _error = 'Error al buscar: ${e.toString()}';
+        _error = ErrorHandler.getErrorMessage(e);
       });
     } finally {
       if (!mounted) return;
@@ -221,15 +224,17 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       );
 
       // Navegar a la pantalla de llamada
-      Navigator.pushNamed(
+      Navigator.push(
         context,
-        AppRoutes.llamada,
-        arguments: sala,
+        MaterialPageRoute(
+          builder: (_) => LlamadaPage(credenciales: sala),
+        ),
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      ErrorHandler.logError('[CREAR-EMERGENCIA]', e, stackTrace);
       if (!mounted) return;
       setState(() {
-        _error = 'Ocurrio un error al registrar la emergencia.';
+        _error = ErrorHandler.getErrorMessage(e);
       });
     } finally {
       if (!mounted) return;
@@ -543,9 +548,14 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.red),
+                  child: ErrorDisplayWidget(
+                    errorMessage: _error!,
+                    showRetryButton: false,
+                    onDismiss: () {
+                      setState(() {
+                        _error = null;
+                      });
+                    },
                   ),
                 ),
 

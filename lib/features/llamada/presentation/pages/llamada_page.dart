@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:livekit_client/livekit_client.dart' as livekit;
+import 'dart:async';
 
 import '../../../../core/constants/colors.dart';
-import '../../../../routes.dart';
+import '../../../../core/services/error_handler.dart';
+import '../../../../core/widgets/error_display_widget.dart';
 
 class LlamadaPage extends StatefulWidget {
   final Map<String, dynamic> credenciales; // {room, token, identity, server_url}
@@ -19,72 +21,157 @@ class LlamadaPage extends StatefulWidget {
 
 class _LlamadaPageState extends State<LlamadaPage> {
   late livekit.Room _room;
+  late livekit.EventsListener<livekit.RoomEvent> _listener;
   bool _isAudioEnabled = false;
   bool _isConnected = false;
+  bool _sdkInitialized = false;
   String _estado = 'Presiona conectar para iniciar';
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    // NO conectar automáticamente - esperar a que el usuario presione el botón
-    print('[LLAMADA] Esperando que el usuario inicie la conexión');
+    // SOLO inicializar el SDK, no conectar
+    _inicializarSDK();
+  }
+
+  Future<void> _inicializarSDK() async {
+    try {
+      if (_sdkInitialized) {
+        print('[LLAMADA] SDK ya está inicializado');
+        return;
+      }
+      
+      print('[LLAMADA] Inicializando LiveKitClient...');
+      await livekit.LiveKitClient.initialize(
+        bypassVoiceProcessing: true,
+      );
+      print('[LLAMADA] ✅ LiveKitClient inicializado con bypassVoiceProcessing=true');
+      
+      if (mounted) {
+        setState(() {
+          _sdkInitialized = true;
+        });
+      }
+    } catch (e, stackTrace) {
+      ErrorHandler.logError('[LLAMADA-SDK-INIT]', e, stackTrace);
+      if (mounted) {
+        setState(() {
+          _errorMessage = ErrorHandler.getErrorMessage(e);
+          _estado = 'Error';
+        });
+      }
+    }
   }
 
   Future<void> _conectarALlamada() async {
     try {
+      // Primero asegurar que el SDK está inicializado
+      if (!_sdkInitialized) {
+        print('[LLAMADA] SDK no inicializado, inicializando primero...');
+        await _inicializarSDK();
+        if (!_sdkInitialized) {
+          throw Exception('No se pudo inicializar el SDK');
+        }
+      }
+      
       setState(() {
-        _estado = 'Conectando a sala...';
-        _errorMessage = null;
+        _estado = 'Conectando...';
       });
-
-      print('[LLAMADA] Inicializando Room...');
-      _room = livekit.Room();
 
       // Extraer credenciales
       final String serverUrl = widget.credenciales['server_url'];
       final String token = widget.credenciales['token'];
 
+      print('\n${'═' * 70}');
+      print('[LLAMADA] 🔌 INICIANDO CONEXIÓN A LIVEKIT');
+      print('${'═' * 70}');
       print('[LLAMADA] Server URL: $serverUrl');
-      print('[LLAMADA] Token: ${token.substring(0, 20)}...');
-      print('[LLAMADA] Intentando conectar...');
+      print('[LLAMADA] Token length: ${token.length} chars\n');
 
-      // Conectar a la sala con manejo específico de errores
-      try {
-        // Añadir pequeño delay para que el UI se actualice primero
-        await Future.delayed(const Duration(milliseconds: 500));
+      // Crear room
+      print('[LLAMADA] [1] Creando Room...');
+      _room = livekit.Room();
+      print('[LLAMADA] [1a] Room creado');
+
+      // Crear listener
+      print('[LLAMADA] [1b] Creando listener...');
+      _listener = _room.createListener();
+      print('[LLAMADA] [1c] Listener creado');
+
+      // Escuchar evento de conexión exitosa
+      _listener.on<livekit.RoomConnectedEvent>((event) {
+        print('[LLAMADA] ✅ RoomConnectedEvent recibido!');
+      });
+
+      _listener.on<livekit.RoomDisconnectedEvent>((event) {
+        print('[LLAMADA] ❌ RoomDisconnectedEvent: ${event.reason}');
+      });
+
+      print('[LLAMADA] [2] Iniciando conexión...');
+      print('[LLAMADA] [2a] URL: $serverUrl');
+      print('[LLAMADA] [2b] Token válido: ${token.isNotEmpty}');
+
+      // Intentar conectar sin options primero - simple approach
+      print('[LLAMADA] [2c] Llamando a connect() sin options...');
+      
+      // NO esperar al Future directamente - usar polling del estado
+      print('[LLAMADA] [2c1] Iniciando connect() sin esperar...');
+      _room.connect(serverUrl, token);
+      print('[LLAMADA] [2c2] Connect iniciado, ahora haciendo polling...');
+      
+      // Monitorear el estado de la conexión con polling
+      bool connected = false;
+      int pollCount = 0;
+      const int maxPolls = 16; // 8 segundos con 500ms de intervalo
+      const Duration pollInterval = Duration(milliseconds: 500);
+      
+      // Iniciar polling en background
+      while (pollCount < maxPolls && !connected) {
+        await Future.delayed(pollInterval);
+        pollCount++;
         
-        await _room.connect(
-          serverUrl,
-          token,
-          connectOptions: livekit.ConnectOptions(
-            autoSubscribe: false,
-          ),
-        );
+        // Verificar si hay un participante local (indicador de conexión)
+        try {
+          if (_room.localParticipant != null) {
+            print('[LLAMADA] [2d] ✅ LocalParticipant detectado (poll #$pollCount)');
+            connected = true;
+            break;
+          }
+        } catch (e) {
+          print('[LLAMADA] [2c-error-poll] Error verificando localParticipant: $e');
+        }
         
-        print('[LLAMADA] Conexión exitosa');
-        
-        if (!mounted) return;
-        setState(() {
-          _isConnected = true;
-          _estado = 'Conectado con CRUE';
-          _isAudioEnabled = false;
-        });
-        print('[LLAMADA] Estado actualizado');
-      } on PlatformException catch (pe) {
-        print('[LLAMADA] PlatformException: ${pe.code} - ${pe.message}');
-        throw 'Error de plataforma: ${pe.message}';
-      } catch (connectError) {
-        print('[LLAMADA] Error en connect(): $connectError');
-        print('[LLAMADA] Stack trace: $connectError');
-        rethrow;
+        if (pollCount % 4 == 0) {
+          print('[LLAMADA] [polling] Intento $pollCount/$maxPolls');
+        }
       }
-    } catch (e) {
-      print('[LLAMADA] Error general: $e');
+      
+      if (!connected) {
+        print('[LLAMADA] ❌ Timeout en polling: connect() no completó en 8 segundos');
+        throw Exception('Timeout en conexión a LiveKit');
+      }
+      
+      print('[LLAMADA] [2e] Conexión completada!');
+      print('[LLAMADA] [3] ✅ Conectado exitosamente!');
+      print('${'═' * 70}\n');
+
       if (!mounted) return;
+      
       setState(() {
-        _errorMessage = 'Error: ${e.toString()}';
-        _estado = 'Error al conectar';
+        _isConnected = true;
+        _estado = 'Conectado con CRUE';
+        _isAudioEnabled = false;
+      });
+    } catch (e, stackTrace) {
+      ErrorHandler.logError('[LLAMADA-CONEXION]', e, stackTrace);
+      
+      if (!mounted) return;
+      
+      final userMessage = ErrorHandler.getErrorMessage(e);
+      setState(() {
+        _errorMessage = userMessage;
+        _estado = 'Error';
       });
     }
   }
@@ -108,10 +195,10 @@ class _LlamadaPageState extends State<LlamadaPage> {
           _estado = 'Micrófono desactivado';
         }
       });
-    } catch (e) {
-      print('Error toggling audio: $e');
+    } catch (e, stackTrace) {
+      ErrorHandler.logError('[LLAMADA-AUDIO]', e, stackTrace);
       setState(() {
-        _errorMessage = 'Error al cambiar micrófono: $e';
+        _errorMessage = ErrorHandler.getErrorMessage(e);
       });
     }
   }
@@ -120,50 +207,74 @@ class _LlamadaPageState extends State<LlamadaPage> {
     try {
       print('[LLAMADA] Finalizando llamada...');
       
-      // Iniciar desconexión de forma asincrónica sin esperar
+      // Detener estado actual
+      setState(() {
+        _isConnected = false;
+        _estado = 'Desconectando...';
+      });
+      
+      // Desconectar y esperar
       if (_isConnected) {
-        print('[LLAMADA] Desconectando de LiveKit...');
-        
-        // Ejecutar la desconexión en background sin bloquear
-        _room.disconnect().then((_) {
-          print('[LLAMADA] Desconexión completada en background');
-        }).catchError((e) {
-          print('[LLAMADA] Error en desconexión background: $e');
-        });
+        print('[LLAMADA] Iniciando desconexión...');
+        try {
+          await _room.disconnect().timeout(
+            const Duration(seconds: 3),
+          );
+          print('[LLAMADA] Desconexión completada');
+        } on TimeoutException {
+          print('[LLAMADA] Timeout en disconnect');
+        } catch (e) {
+          print('[LLAMADA] Error en desconexión: $e');
+        }
       }
       
-      // Esperar un poco para que comience la desconexión
-      await Future.delayed(const Duration(milliseconds: 300));
-      
-      if (mounted) {
-        print('[LLAMADA] Navegando al home...');
-        // Navegar al home del solicitante y limpiar la pila de navegación
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.homeSolicitante,
-          (route) => false,
+      // Limpiar listener
+      try {
+        await _listener.dispose().timeout(
+          const Duration(seconds: 2),
         );
+        print('[LLAMADA] Listener disposado');
+      } on TimeoutException {
+        print('[LLAMADA] Timeout en listener.dispose');
+      } catch (e) {
+        print('[LLAMADA] Error disposing listener: $e');
       }
+      
+      // Esperar a que el native plugin se estabilice
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      print('[LLAMADA] Pop seguro');
+      if (!mounted) {
+        print('[LLAMADA] Widget no montado');
+        return;
+      }
+      
+      Navigator.of(context, rootNavigator: false).pop();
     } catch (e) {
-      print('[LLAMADA] Error finalizando llamada: $e');
+      print('[LLAMADA] Error finalizando: $e');
       if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.homeSolicitante,
-          (route) => false,
-        );
+        try {
+          Navigator.of(context, rootNavigator: false).pop();
+        } catch (err) {
+          print('[LLAMADA] Error en pop final: $err');
+        }
       }
     }
   }
 
   @override
   void dispose() {
-    if (_isConnected) {
-      try {
-        _room.dispose();
-      } catch (e) {
-        print('[LLAMADA] Error al disposar room: $e');
+    print('[LLAMADA] Disposing LlamadaPage...');
+    try {
+      if (_isConnected) {
+        try {
+          _room.dispose();
+        } catch (e) {
+          print('[LLAMADA] Error al disposar room: $e');
+        }
       }
+    } catch (e) {
+      print('[LLAMADA] Error en dispose: $e');
     }
     super.dispose();
   }
@@ -189,29 +300,18 @@ class _LlamadaPageState extends State<LlamadaPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.error_outline,
-            color: Colors.red,
-            size: 64,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Error en la llamada',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Text(
-              _errorMessage ?? 'Error desconocido',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-              ),
+            child: ErrorDisplayWidget(
+              errorMessage: _errorMessage ?? 'Error desconocido',
+              showRetryButton: true,
+              onRetry: () {
+                setState(() {
+                  _errorMessage = null;
+                  _estado = 'Presiona conectar para iniciar';
+                });
+              },
+              onDismiss: () => Navigator.pop(context),
             ),
           ),
           const SizedBox(height: 24),
