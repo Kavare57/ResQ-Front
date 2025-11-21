@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../../../core/services/jwt_helper.dart';
+import '../../../../core/services/error_handler.dart';
+import '../../../../core/widgets/error_display_widget.dart';
 import '../../../auth/application/auth_controller.dart';
 import '../../../auth/presentation/pages/login_page.dart';
+import '../../data/apis/historial_emergencias_api.dart';
+import '../../data/models/emergencia_historial.dart';
 import 'perfil_solicitante_page.dart';
 import 'nueva_emergencia_page.dart';
 
@@ -22,8 +26,14 @@ class HomeSolicitantePage extends StatefulWidget {
 class _HomeSolicitantePageState extends State<HomeSolicitantePage> {
   final _auth = AuthController();
   final _storage = StorageService();
+  final _historialApi = HistorialEmergenciasApi();
+  
   late String _nombreUsuario;
   bool _cargandoNombre = true;
+  
+  List<EmergenciaHistorial> _emergencias = [];
+  bool _cargandoHistorial = true;
+  String? _errorHistorial;
 
   @override
   void initState() {
@@ -39,6 +49,7 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> {
     // Solo cargar una vez
     if (_cargandoNombre) {
       _cargarNombreDelStorage();
+      _cargarHistorial();
     }
   }
 
@@ -96,6 +107,32 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> {
           _cargandoNombre = false;
         });
       }
+    }
+  }
+
+  Future<void> _cargarHistorial() async {
+    if (!mounted) return;
+
+    try {
+      print('[HOME] Cargando historial de emergencias...');
+      final emergencias = await _historialApi.obtenerHistorial(limit: 10);
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _emergencias = emergencias;
+        _cargandoHistorial = false;
+        _errorHistorial = null;
+      });
+      print('[HOME] Historial cargado: ${emergencias.length} emergencias');
+    } catch (e, stackTrace) {
+      ErrorHandler.logError('[HOME-HISTORIAL]', e, stackTrace);
+      if (!mounted) return;
+      
+      setState(() {
+        _cargandoHistorial = false;
+        _errorHistorial = ErrorHandler.getErrorMessage(e);
+      });
     }
   }
 
@@ -186,13 +223,39 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> {
 
             const SizedBox(height: 24),
 
-            // ******** TARJETA: Última emergencia ********
+            // ******** TARJETA: Historial de emergencias ********
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: _InfoCard(
-                title: 'Última emergencia',
-                subtitle: 'No hay emergencias recientes.',
-                icon: Icons.history,
+              child: Card(
+                color: ResQColors.onPrimary,
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: ResQColors.primary100,
+                            child: Icon(Icons.history, color: ResQColors.primary600),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Historial de emergencias',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _buildHistorialContent(),
+                    ],
+                  ),
+                ),
               ),
             ),
 
@@ -213,12 +276,90 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> {
       ),
     );
   }
+
+  // ========== Método para construir el contenido del historial ==========
+  Widget _buildHistorialContent() {
+    if (_cargandoHistorial) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16.0),
+        child: Column(
+          children: [
+            const SizedBox(
+              height: 30,
+              width: 30,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Cargando historial...',
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_errorHistorial != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: ErrorDisplayWidget(
+          errorMessage: _errorHistorial!,
+          showRetryButton: true,
+          onRetry: _cargarHistorial,
+          onDismiss: () {
+            setState(() {
+              _errorHistorial = null;
+            });
+          },
+        ),
+      );
+    }
+
+    if (_emergencias.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16.0),
+        child: Column(
+          children: [
+            Icon(Icons.history, color: Colors.black26, size: 32),
+            const SizedBox(height: 8),
+            const Text(
+              'No hay emergencias registradas',
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Mostrar lista de emergencias (máximo 10)
+    return Column(
+      children: [
+        ..._emergencias.take(10).map((emergencia) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: _EmergenciaHistorialItem(emergencia: emergencia),
+          );
+        }).toList(),
+        if (_emergencias.length > 10)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: Text(
+              'y ${_emergencias.length - 10} más...',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.black54,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 // ============================================================================
 //                                WIDGETS EXTRA
 // ============================================================================
-
 
 // ----------- TARJETA SOS -----------
 class _SosCard extends StatelessWidget {
@@ -338,3 +479,91 @@ class _InfoCard extends StatelessWidget {
     );
   }
 }
+
+// ----------- ITEM DE EMERGENCIA EN HISTORIAL -----------
+class _EmergenciaHistorialItem extends StatelessWidget {
+  final EmergenciaHistorial emergencia;
+
+  const _EmergenciaHistorialItem({required this.emergencia});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.black12),
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.grey.shade50,
+      ),
+      padding: const EdgeInsets.all(12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Fila 1: Estado, Prioridad y Fecha
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  emergencia.estadoLabel,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Flexible(
+                child: Text(
+                  emergencia.prioridadLabel,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Flexible(
+                child: Text(
+                  emergencia.fechaFormato,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Colors.black54,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          
+          // Fila 2: Tipo de ambulancia
+          Row(
+            children: [
+              const Icon(Icons.local_hospital, size: 14, color: Colors.black54),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  emergencia.tipoLabel,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          
+          // Fila 3: Descripción
+          Text(
+            emergencia.descripcion,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.black54,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
