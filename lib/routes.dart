@@ -4,6 +4,7 @@ import 'features/auth/presentation/pages/register_page.dart';
 import 'features/llamada/presentation/pages/llamada_page.dart';
 import 'features/solicitante/presentation/pages/home_solicitante_page.dart';
 import 'features/solicitante/presentation/pages/perfil_solicitante_page.dart';
+import 'features/solicitante/presentation/pages/seguimiento_solicitud_page.dart';
 import 'features/operador_ambulancia/presentation/pages/perfil_operador_ambulancia_page.dart';
 import 'features/operador_ambulancia/presentation/pages/dashboard_operador_ambulancia_page.dart';
 
@@ -13,6 +14,7 @@ class AppRoutes {
   static const String homeSolicitante = '/home-solicitante';
   static const String llamada = '/llamada';
   static const String perfilSolicitante = '/perfil-solicitante';
+  static const String seguimientoSolicitud = '/seguimiento-solicitud';
   static const String perfilOperador = '/perfil-operador';
   static const String dashboardOperador = '/dashboard-operador';
 
@@ -35,6 +37,12 @@ class AppRoutes {
           builder: (_) => PerfilSolicitantePage(
             forzarCompletar: args?['forzarCompletar'] ?? false,
           ),
+        );
+      case seguimientoSolicitud:
+        final args = settings.arguments as Map<String, dynamic>?;
+        final idSolicitud = args?['idSolicitud'] as int? ?? 0;
+        return MaterialPageRoute(
+          builder: (_) => SeguimientoSolicitudPage(idSolicitud: idSolicitud),
         );
       case perfilOperador:
         final args = settings.arguments as Map<String, dynamic>?;

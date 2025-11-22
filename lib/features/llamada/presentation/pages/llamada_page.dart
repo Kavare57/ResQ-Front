@@ -249,7 +249,21 @@ class _LlamadaPageState extends State<LlamadaPage> {
         return;
       }
       
-      Navigator.of(context, rootNavigator: false).pop();
+      // Navegar a SeguimientoSolicitudPage en lugar de solo pop
+      // Extraer el ID de la solicitud del objeto credenciales
+      final solicitud = widget.credenciales['solicitud'] as Map<String, dynamic>?;
+      final idSolicitud = solicitud?['id'] as int? ?? 0;
+      
+      if (!mounted) return;
+      if (idSolicitud > 0) {
+        Navigator.of(context, rootNavigator: false).pushReplacementNamed(
+          '/seguimiento-solicitud',
+          arguments: {'idSolicitud': idSolicitud},
+        );
+      } else {
+        print('[LLAMADA] No se pudo obtener ID de solicitud, navigando a pop');
+        Navigator.of(context, rootNavigator: false).pop();
+      }
     } catch (e) {
       print('[LLAMADA] Error finalizando: $e');
       if (mounted) {
