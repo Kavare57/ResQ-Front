@@ -21,7 +21,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _form = GlobalKey<FormState>();
-  final _email = TextEditingController();
+  final _identifierController = TextEditingController();
   final _pass = TextEditingController();
   final _auth = AuthController();
 
@@ -32,7 +32,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
-    _email.dispose();
+    _identifierController.dispose();
     _pass.dispose();
     super.dispose();
   }
@@ -47,7 +47,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       final r = await _auth.login(
-        email: _email.text.trim(),
+        identifier: _identifierController.text.trim(),
         password: _pass.text,
         remember: _remember,
       );
@@ -75,7 +75,7 @@ class _LoginPageState extends State<LoginPage> {
 
           // Ruteo dinámico basado en tipoUsuario
           Widget destination;
-          
+
           if (tipoUsuario != null) {
             // Si el JWT ya incluye tipoUsuario (backend actualizado)
             switch (tipoUsuario) {
@@ -92,7 +92,8 @@ class _LoginPageState extends State<LoginPage> {
           } else {
             // Mientras el backend no incluya tipoUsuario, por defecto ir a solicitante
             // (porque solo solicitantes pueden registrarse públicamente por ahora)
-            print('[LOGIN] tipoUsuario no encontrado en JWT, asumiendo SOLICITANTE');
+            print(
+                '[LOGIN] tipoUsuario no encontrado en JWT, asumiendo SOLICITANTE');
             destination = const HomeSolicitantePage();
           }
 
@@ -145,15 +146,16 @@ class _LoginPageState extends State<LoginPage> {
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Correo',
+                      'Correo o usuario',
                       style: TextStyle(color: Colors.grey),
                     ),
                   ),
                   UnderlinedTextField(
-                    controller: _email,
-                    hint: 'demo@email.com',
+                    controller: _identifierController,
+                    hint: 'usuario o email',
                     keyboardType: TextInputType.emailAddress,
-                    validator: Validators.email,
+                    validator: (v) =>
+                        Validators.required(v, label: 'tu correo o usuario'),
                   ),
                   const SizedBox(height: 18),
                   const Align(
@@ -169,12 +171,9 @@ class _LoginPageState extends State<LoginPage> {
                     obscure: _hidePass,
                     validator: Validators.password,
                     suffix: IconButton(
-                      onPressed: () =>
-                          setState(() => _hidePass = !_hidePass),
+                      onPressed: () => setState(() => _hidePass = !_hidePass),
                       icon: Icon(
-                        _hidePass
-                            ? Icons.visibility_off
-                            : Icons.visibility,
+                        _hidePass ? Icons.visibility_off : Icons.visibility,
                       ),
                     ),
                   ),
@@ -267,4 +266,3 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
-

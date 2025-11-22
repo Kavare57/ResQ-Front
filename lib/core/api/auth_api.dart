@@ -12,19 +12,21 @@ class AuthApi {
   ///   "identificador": "email o nombredeusuario",
   ///   "contrasena": "string"
   /// }
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String identifier, String password) async {
     final url = Uri.parse('$baseUrl/auth/login');
     print('[LOGIN] Iniciando...');
 
     try {
-      final res = await http.post(
+      final res = await http
+          .post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'identificador': email,
+          'identificador': identifier,
           'contrasena': password,
         }),
-      ).timeout(_timeout, onTimeout: () {
+      )
+          .timeout(_timeout, onTimeout: () {
         throw Exception('Timeout en login (10s)');
       });
 
@@ -49,12 +51,14 @@ class AuthApi {
   /// }
   ///
   /// Respuesta 201: Objeto Usuario creado (JSON)
-  Future<Map<String, dynamic>> register(String nombre, String email, String password) async {
+  Future<Map<String, dynamic>> register(
+      String nombre, String email, String password) async {
     final url = Uri.parse('$baseUrl/usuarios');
     print('[REGISTER] 1/9 - Creando usuario...');
 
     try {
-      final res = await http.post(
+      final res = await http
+          .post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -62,7 +66,8 @@ class AuthApi {
           'email': email,
           'contrasenaHasheada': password,
         }),
-      ).timeout(_timeout, onTimeout: () {
+      )
+          .timeout(_timeout, onTimeout: () {
         throw Exception('Timeout en registro (10s)');
       });
 
@@ -82,7 +87,7 @@ class AuthApi {
   }
 
   /// VERIFICAR TOKEN: asumo POST /auth/verify con Authorization: Bearer
-   Future<Map<String, dynamic>> verify(String token) async {
+  Future<Map<String, dynamic>> verify(String token) async {
     final url = Uri.parse('$baseUrl/auth/verify');
 
     final res = await http.post(
@@ -105,23 +110,25 @@ class AuthApi {
   /// OBTENER ID_PERSONA: POST /usuarios/obtener-id-persona
   /// body:
   /// {
-  ///   "email": "user@example.com",
+  ///   "identificador": "email o usuario",
   ///   "contrasena": "string"
   /// }
   /// Respuesta: { "id_persona": int | null }
-  Future<int?> obtenerIdPersona(String email, String contrasena) async {
+  Future<int?> obtenerIdPersona(String identifier, String contrasena) async {
     final url = Uri.parse('$baseUrl/usuarios/obtener-id-persona');
     print('[OBTENER_ID_PERSONA] Buscando id_persona...');
 
     try {
-      final res = await http.post(
+      final res = await http
+          .post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'email': email,
+          'identificador': identifier,
           'contrasena': contrasena,
         }),
-      ).timeout(_timeout, onTimeout: () {
+      )
+          .timeout(_timeout, onTimeout: () {
         throw Exception('Timeout obteniendo id_persona (10s)');
       });
 
@@ -139,5 +146,4 @@ class AuthApi {
       return null;
     }
   }
-
 }

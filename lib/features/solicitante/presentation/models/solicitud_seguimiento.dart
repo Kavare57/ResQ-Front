@@ -17,7 +17,7 @@ class UbicacionAmbulancia {
     return UbicacionAmbulancia(
       latitud: (json['latitud'] as num).toDouble(),
       longitud: (json['longitud'] as num).toDouble(),
-      fecha: json['fecha'] != null 
+      fecha: json['fecha'] != null
           ? DateTime.parse(json['fecha'] as String)
           : DateTime.now(),
       velocidad: json['velocidad'] as int? ?? 0,
@@ -26,7 +26,7 @@ class UbicacionAmbulancia {
   }
 
   bool get estaCerca => distancia < 500; // Menos de 500 metros
-  
+
   String get distanciaFormato {
     if (distancia < 1000) {
       return '${distancia.toInt()}m';
@@ -37,7 +37,8 @@ class UbicacionAmbulancia {
 }
 
 class EstadoEmergencia {
-  final String estado; // EMERGENCIA_CREADA, VALORADA, AMBULANCIA_ASIGNADA, RESUELTA
+  final String
+      estado; // EMERGENCIA_CREADA, VALORADA, AMBULANCIA_ASIGNADA, RESUELTA
   final DateTime fecha;
   final String descripcion;
 
@@ -115,27 +116,35 @@ class SolicitudSeguimiento {
 
   factory SolicitudSeguimiento.fromJson(Map<String, dynamic> json) {
     final estados = (json['historialEstados'] as List?)
-        ?.map((e) => EstadoEmergencia.fromJson(e as Map<String, dynamic>))
-        .toList() ?? [];
-    
+            ?.map((e) => EstadoEmergencia.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
+
     return SolicitudSeguimiento(
       id: json['id'] as int? ?? 0,
       nombrePaciente: json['nombrePaciente'] as String? ?? 'Paciente',
       descripcion: json['descripcion'] as String? ?? '',
       latitudEmergencia: (json['latitudEmergencia'] as num?)?.toDouble() ?? 0.0,
-      longitudEmergencia: (json['longitudEmergencia'] as num?)?.toDouble() ?? 0.0,
+      longitudEmergencia:
+          (json['longitudEmergencia'] as num?)?.toDouble() ?? 0.0,
       estadoActual: EstadoEmergencia.fromJson(
-        json['estadoActual'] as Map<String, dynamic>? ?? {'estado': 'DESCONOCIDO', 'fecha': DateTime.now().toIso8601String()},
+        json['estadoActual'] as Map<String, dynamic>? ??
+            {
+              'estado': 'DESCONOCIDO',
+              'fecha': DateTime.now().toIso8601String()
+            },
       ),
       historialEstados: estados,
       ubicacionAmbulancia: json['ubicacionAmbulancia'] != null
-          ? UbicacionAmbulancia.fromJson(json['ubicacionAmbulancia'] as Map<String, dynamic>)
+          ? UbicacionAmbulancia.fromJson(
+              json['ubicacionAmbulancia'] as Map<String, dynamic>)
           : null,
       idAmbulancia: json['idAmbulancia'] as int?,
       nombreOperador: json['nombreOperador'] as String?,
     );
   }
 
-  bool get ambulanciaAsignada => idAmbulancia != null && ubicacionAmbulancia != null;
-  bool get ambulanciaC erca => ubicacionAmbulancia?.estaCerca ?? false;
+  bool get ambulanciaAsignada =>
+      idAmbulancia != null && ubicacionAmbulancia != null;
+  bool get ambulanciaCerca => ubicacionAmbulancia?.estaCerca ?? false;
 }
