@@ -339,9 +339,7 @@ class _PerfilOperadorAmbulanciaPageState
                             ? 'Selecciona una fecha'
                             : _fechaNac!.toString().split(' ')[0],
                         style: TextStyle(
-                          color: _fechaNac == null
-                              ? Colors.grey
-                              : Colors.black,
+                          color: _fechaNac == null ? Colors.grey : Colors.black,
                         ),
                       ),
                       const Icon(Icons.calendar_today),
@@ -358,14 +356,13 @@ class _PerfilOperadorAmbulanciaPageState
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _tipoDoc,
+                initialValue: _tipoDoc,
                 items: const [
                   DropdownMenuItem(value: 'CEDULA', child: Text('Cédula')),
-                  DropdownMenuItem(value: 'PASAPORTE', child: Text('Pasaporte')),
+                  DropdownMenuItem(
+                      value: 'PASAPORTE', child: Text('Pasaporte')),
                   DropdownMenuItem(value: 'VISA', child: Text('Visa')),
-                ]
-                    .map((e) => e)
-                    .toList(),
+                ].map((e) => e).toList(),
                 onChanged: (v) => setState(() => _tipoDoc = v ?? 'CEDULA'),
                 decoration: const InputDecoration(
                   labelText: 'Tipo de documento',

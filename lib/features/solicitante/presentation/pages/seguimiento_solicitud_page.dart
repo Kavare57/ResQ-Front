@@ -12,10 +12,10 @@ class SeguimientoSolicitudPage extends StatefulWidget {
   final SolicitudSeguimiento? datosIniciales;
 
   const SeguimientoSolicitudPage({
-    Key? key,
+    super.key,
     required this.idSolicitud,
     this.datosIniciales,
-  }) : super(key: key);
+  });
 
   @override
   State<SeguimientoSolicitudPage> createState() =>
@@ -25,7 +25,7 @@ class SeguimientoSolicitudPage extends StatefulWidget {
 class _SeguimientoSolicitudPageState extends State<SeguimientoSolicitudPage> {
   late final SolicitudWebSocketService _wsService;
   late SolicitudSeguimiento _solicitud;
-  
+
   bool _conectando = true;
   String? _errorConexion;
   bool _mostrarNotificacionCerca = false;
@@ -36,7 +36,7 @@ class _SeguimientoSolicitudPageState extends State<SeguimientoSolicitudPage> {
     super.initState();
     _mapController = MapController();
     _wsService = SolicitudWebSocketService();
-    
+
     // Usar datos iniciales si están disponibles
     if (widget.datosIniciales != null) {
       _solicitud = widget.datosIniciales!;
@@ -80,7 +80,8 @@ class _SeguimientoSolicitudPageState extends State<SeguimientoSolicitudPage> {
     };
 
     _wsService.onUbicacionAmbulancia = (ubicacion) {
-      print('[SEGUIMIENTO] Ubicación ambulancia: ${ubicacion.distanciaFormato}');
+      print(
+          '[SEGUIMIENTO] Ubicación ambulancia: ${ubicacion.distanciaFormato}');
       setState(() {
         _solicitud = SolicitudSeguimiento(
           id: _solicitud.id,
@@ -162,7 +163,8 @@ class _SeguimientoSolicitudPageState extends State<SeguimientoSolicitudPage> {
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
               Icon(Icons.local_hospital, color: Colors.red, size: 28),
@@ -226,7 +228,8 @@ class _SeguimientoSolicitudPageState extends State<SeguimientoSolicitudPage> {
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   ),
                   MarkerLayer(
                     markers: [
@@ -398,7 +401,8 @@ class _SeguimientoSolicitudPageState extends State<SeguimientoSolicitudPage> {
                   height: 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: completado ? ResQColors.primary500 : Colors.grey[300],
+                    color:
+                        completado ? ResQColors.primary500 : Colors.grey[300],
                   ),
                   child: Center(
                     child: completado
@@ -428,7 +432,8 @@ class _SeguimientoSolicitudPageState extends State<SeguimientoSolicitudPage> {
                 child: SizedBox(
                   height: 20,
                   child: VerticalDivider(
-                    color: completado ? ResQColors.primary500 : Colors.grey[300],
+                    color:
+                        completado ? ResQColors.primary500 : Colors.grey[300],
                     thickness: 2,
                   ),
                 ),
@@ -502,7 +507,8 @@ class _SeguimientoSolicitudPageState extends State<SeguimientoSolicitudPage> {
               ),
               Text(
                 '${ubicacion.velocidad} km/h',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -518,7 +524,8 @@ class _SeguimientoSolicitudPageState extends State<SeguimientoSolicitudPage> {
               ),
               Text(
                 _solicitud.estadoActual.estadoLabel,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),

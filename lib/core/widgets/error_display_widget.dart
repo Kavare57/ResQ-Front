@@ -7,12 +7,12 @@ class ErrorDisplayWidget extends StatelessWidget {
   final bool showRetryButton;
 
   const ErrorDisplayWidget({
-    Key? key,
+    super.key,
     required this.errorMessage,
     this.onRetry,
     this.onDismiss,
     this.showRetryButton = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

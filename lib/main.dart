@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'core/services/storage_service.dart';
+import 'package:geolocator/geolocator.dart';
 import 'core/services/permissions_service.dart';
+import 'core/services/location_service.dart';
 import 'features/auth/application/auth_controller.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/solicitante/presentation/pages/home_solicitante_page.dart';
@@ -31,26 +32,51 @@ class _ResQAppState extends State<ResQApp> {
   }
 
   Future<void> _checkAuth() async {
-    // Solicitar todos los permisos necesarios al iniciar
-    print('[APP] Solicitando permisos...');
+    // Solicitar permisos de ubicación al iniciar la app por primera vez
+    print('[APP] Solicitando permisos de ubicación...');
+    try {
+      // Verificar si el servicio de ubicación está habilitado
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (serviceEnabled) {
+        // Verificar permisos usando Geolocator directamente
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          print('[APP] Permisos de ubicación denegados, solicitando...');
+          permission = await Geolocator.requestPermission();
+          if (permission == LocationPermission.denied) {
+            print('[APP] Permisos de ubicación denegados por el usuario');
+          } else if (permission == LocationPermission.deniedForever) {
+            print('[APP] Permisos de ubicación denegados permanentemente');
+          } else {
+            print('[APP] Permisos de ubicación otorgados');
+          }
+        } else if (permission == LocationPermission.whileInUse ||
+            permission == LocationPermission.always) {
+          print('[APP] Permisos de ubicación ya otorgados');
+        }
+      } else {
+        print('[APP] Servicio de ubicación deshabilitado');
+      }
+    } catch (e) {
+      print('[APP] Error solicitando permisos de ubicación: $e');
+    }
+
+    // Solicitar otros permisos (micrófono, cámara) si es necesario
+    print('[APP] Solicitando otros permisos...');
     await PermissionsService.requestAllPermissions();
-    
+
+    // Iniciar obtención de ubicación precisa en segundo plano (no bloquea)
+    print('[APP] Iniciando LocationService en segundo plano...');
+    LocationService().initialize().catchError((e) {
+      print('[APP] Error iniciando LocationService: $e');
+    });
+
     // Pregunta al AuthController si hay token válido guardado
     final startTime = DateTime.now();
-    
-    // Verificar si el usuario pidió "recuerdame"
-    final storage = StorageService();
-    final remember = await storage.getRemember() ?? false;
-    
-    // Si NO pidió recuerdame, borrar el token antes de verificar
-    if (!remember) {
-      await storage.clearToken();
-      print('[AUTH] Remember desactivado - token limpiado');
-    }
-    
+
     final ok = await _auth.isLoggedIn();
     final elapsed = DateTime.now().difference(startTime).inMilliseconds;
-    print('Auth check completed in ${elapsed}ms');
+    print('[AUTH] Verificación completada en ${elapsed}ms - LoggedIn: $ok');
     setState(() {
       _loggedIn = ok;
       _checking = false;
@@ -71,9 +97,7 @@ class _ResQAppState extends State<ResQApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       // Si hay token válido -> Home; si no -> Login
-      home: _loggedIn
-          ? const HomeSolicitantePage()
-          : const LoginPage(),
+      home: _loggedIn ? const HomeSolicitantePage() : const LoginPage(),
       onGenerateRoute: AppRoutes.onGenerateRoute,
     );
   }

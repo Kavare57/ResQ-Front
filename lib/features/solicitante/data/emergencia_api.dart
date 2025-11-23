@@ -1,7 +1,7 @@
 // Stub de puerto/datos: SOLO indica dónde van los endpoints.
 // No requiere http por ahora.
 
-import '../../../core/constants/env.dart'; //warning porque no se esta usando
+//warning porque no se esta usando
 
 class EmergenciaApi {
   // Cuando tengas endpoints reales, usarás: Env.apiBaseUrl
@@ -30,7 +30,8 @@ class EmergenciaApi {
   /// POST /solicitante/emergencias
   /// payload mínimo: { ubicacion:{lat,lon}, descripcion?:string }
   /// TODO: Reemplazar por POST a: `${Env.apiBaseUrl}/solicitante/emergencias`
-  Future<Map<String, dynamic>> createSolicitud(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> createSolicitud(
+      Map<String, dynamic> payload) async {
     // Simulación/UI: responder como si el backend hubiera creado el recurso
     return {
       'id': 'E-1002',

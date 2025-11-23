@@ -179,7 +179,8 @@ class _PerfilOperadorEmergenciaPageState
           if (mounted) {
             final storage = StorageService();
             await storage.clearToken();
-            print('[OPERADOR_EMERGENCIA] Token limpiado, redirigiendo a LoginPage');
+            print(
+                '[OPERADOR_EMERGENCIA] Token limpiado, redirigiendo a LoginPage');
 
             Navigator.pushAndRemoveUntil(
               context,
@@ -337,9 +338,7 @@ class _PerfilOperadorEmergenciaPageState
                             ? 'Selecciona una fecha'
                             : _fechaNac!.toString().split(' ')[0],
                         style: TextStyle(
-                          color: _fechaNac == null
-                              ? Colors.grey
-                              : Colors.black,
+                          color: _fechaNac == null ? Colors.grey : Colors.black,
                         ),
                       ),
                       const Icon(Icons.calendar_today),
@@ -356,14 +355,13 @@ class _PerfilOperadorEmergenciaPageState
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _tipoDoc,
+                initialValue: _tipoDoc,
                 items: const [
                   DropdownMenuItem(value: 'CEDULA', child: Text('Cédula')),
-                  DropdownMenuItem(value: 'PASAPORTE', child: Text('Pasaporte')),
+                  DropdownMenuItem(
+                      value: 'PASAPORTE', child: Text('Pasaporte')),
                   DropdownMenuItem(value: 'VISA', child: Text('Visa')),
-                ]
-                    .map((e) => e)
-                    .toList(),
+                ].map((e) => e).toList(),
                 onChanged: (v) => setState(() => _tipoDoc = v ?? 'CEDULA'),
                 decoration: const InputDecoration(
                   labelText: 'Tipo de documento',
@@ -390,15 +388,17 @@ class _PerfilOperadorEmergenciaPageState
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _turno,
+                initialValue: _turno,
                 items: const [
-                  DropdownMenuItem(value: 'MATUTINO', child: Text('Matutino (6am - 2pm)')),
-                  DropdownMenuItem(value: 'VESPERTINO', child: Text('Vespertino (2pm - 10pm)')),
-                  DropdownMenuItem(value: 'NOCTURNO', child: Text('Nocturno (10pm - 6am)')),
+                  DropdownMenuItem(
+                      value: 'MATUTINO', child: Text('Matutino (6am - 2pm)')),
+                  DropdownMenuItem(
+                      value: 'VESPERTINO',
+                      child: Text('Vespertino (2pm - 10pm)')),
+                  DropdownMenuItem(
+                      value: 'NOCTURNO', child: Text('Nocturno (10pm - 6am)')),
                   DropdownMenuItem(value: 'FLEXIBLE', child: Text('Flexible')),
-                ]
-                    .map((e) => e)
-                    .toList(),
+                ].map((e) => e).toList(),
                 onChanged: (v) => setState(() => _turno = v ?? 'MATUTINO'),
                 decoration: const InputDecoration(
                   labelText: 'Selecciona tu turno',

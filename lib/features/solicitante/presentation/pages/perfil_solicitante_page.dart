@@ -134,30 +134,31 @@ class _PerfilSolicitantePageState extends State<PerfilSolicitantePage> {
 
       if (!mounted) return;
       print('[PERFIL] Perfil guardado exitosamente');
-      
+
       if (widget.forzarCompletar) {
         // Después del registro: completamos perfil y luego volvemos a login
         // Esto asegura que el id_persona se obtenga correctamente en el próximo login
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ Perfil completado! Tu cuenta está lista.'),
             duration: Duration(seconds: 3),
           ),
         );
-        
+
         // Esperamos más tiempo para que todas las operaciones en backend se completen
         // y para que el snackbar se muestre correctamente
         Future.delayed(const Duration(seconds: 4), () async {
           if (mounted) {
-            print('[PERFIL] Completación de perfil finalizada, limpiando sesión temporal...');
-            
+            print(
+                '[PERFIL] Completación de perfil finalizada, limpiando sesión temporal...');
+
             // Limpiamos el token temporal porque ahora se debe hacer login formal
             // En el próximo login se obtendrá id_persona correctamente
             final storage = StorageService();
             await storage.clearToken();
             print('[PERFIL] Token temporal limpiado, redirigiendo a LoginPage');
-            
+
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (_) => const LoginPage()),
@@ -252,43 +253,36 @@ class _PerfilSolicitantePageState extends State<PerfilSolicitantePage> {
                       style: TextStyle(fontSize: 13),
                     ),
                   ),
-
                 const Text('Primer nombre',
                     style: TextStyle(color: Colors.grey)),
                 TextFormField(
                   controller: _nombre1Ctrl,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty)
-                          ? 'Ingresa tu primer nombre'
-                          : null,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Ingresa tu primer nombre'
+                      : null,
                 ),
                 const SizedBox(height: 12),
-
                 const Text('Segundo nombre (opcional)',
                     style: TextStyle(color: Colors.grey)),
                 TextFormField(controller: _nombre2Ctrl),
                 const SizedBox(height: 12),
-
                 const Text('Primer apellido',
                     style: TextStyle(color: Colors.grey)),
                 TextFormField(
                   controller: _apellido1Ctrl,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty)
-                          ? 'Ingresa tu primer apellido'
-                          : null,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Ingresa tu primer apellido'
+                      : null,
                 ),
                 const SizedBox(height: 12),
-
                 const Text('Segundo apellido (opcional)',
                     style: TextStyle(color: Colors.grey)),
                 TextFormField(controller: _apellido2Ctrl),
                 const SizedBox(height: 12),
-
                 const Text('Tipo de documento',
                     style: TextStyle(color: Colors.grey)),
                 DropdownButtonFormField<String>(
-                  value: _tipoDoc,
+                  initialValue: _tipoDoc,
                   items: const [
                     DropdownMenuItem(
                       value: 'CEDULA',
@@ -302,19 +296,16 @@ class _PerfilSolicitantePageState extends State<PerfilSolicitantePage> {
                   onChanged: (v) => setState(() => _tipoDoc = v ?? 'CEDULA'),
                 ),
                 const SizedBox(height: 12),
-
                 const Text('Número de documento',
                     style: TextStyle(color: Colors.grey)),
                 TextFormField(
                   controller: _docCtrl,
                   keyboardType: TextInputType.number,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty)
-                          ? 'Ingresa tu documento'
-                          : null,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Ingresa tu documento'
+                      : null,
                 ),
                 const SizedBox(height: 12),
-
                 const Text('Fecha de nacimiento',
                     style: TextStyle(color: Colors.grey)),
                 InkWell(
@@ -328,16 +319,13 @@ class _PerfilSolicitantePageState extends State<PerfilSolicitantePage> {
                           ? 'Selecciona fecha'
                           : '${_fechaNac!.day}/${_fechaNac!.month}/${_fechaNac!.year}',
                       style: TextStyle(
-                        color: _fechaNac == null
-                            ? Colors.black45
-                            : Colors.black87,
+                        color:
+                            _fechaNac == null ? Colors.black45 : Colors.black87,
                       ),
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 12),
-
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -346,9 +334,7 @@ class _PerfilSolicitantePageState extends State<PerfilSolicitantePage> {
                       style: const TextStyle(color: Colors.red),
                     ),
                   ),
-
                 const SizedBox(height: 20),
-
                 SizedBox(
                   width: double.infinity,
                   height: 52,

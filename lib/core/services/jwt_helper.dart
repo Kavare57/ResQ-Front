@@ -41,12 +41,21 @@ class JwtHelper {
     var id = payload?['id'];
     if (id is int) return id;
     if (id is String) return int.tryParse(id);
-    
+
     // Fallback a "id_usuario" por compatibilidad
     id = payload?['id_usuario'];
     if (id is int) return id;
     if (id is String) return int.tryParse(id);
-    
+
+    return null;
+  }
+
+  /// Extrae el id_persona del JWT
+  static int? getIdPersona(String token) {
+    final payload = decodeToken(token);
+    var id = payload?['id_persona'];
+    if (id is int) return id;
+    if (id is String) return int.tryParse(id);
     return null;
   }
 

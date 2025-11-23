@@ -8,12 +8,13 @@ import '../../../../core/services/error_handler.dart';
 import '../../../../core/widgets/error_display_widget.dart';
 
 class LlamadaPage extends StatefulWidget {
-  final Map<String, dynamic> credenciales; // {room, token, identity, server_url}
+  final Map<String, dynamic>
+      credenciales; // {room, token, identity, server_url}
 
   const LlamadaPage({
-    Key? key,
+    super.key,
     required this.credenciales,
-  }) : super(key: key);
+  });
 
   @override
   State<LlamadaPage> createState() => _LlamadaPageState();
@@ -41,13 +42,14 @@ class _LlamadaPageState extends State<LlamadaPage> {
         print('[LLAMADA] SDK ya está inicializado');
         return;
       }
-      
+
       print('[LLAMADA] Inicializando LiveKitClient...');
       await livekit.LiveKitClient.initialize(
         bypassVoiceProcessing: true,
       );
-      print('[LLAMADA] ✅ LiveKitClient inicializado con bypassVoiceProcessing=true');
-      
+      print(
+          '[LLAMADA] ✅ LiveKitClient inicializado con bypassVoiceProcessing=true');
+
       if (mounted) {
         setState(() {
           _sdkInitialized = true;
@@ -74,7 +76,7 @@ class _LlamadaPageState extends State<LlamadaPage> {
           throw Exception('No se pudo inicializar el SDK');
         }
       }
-      
+
       setState(() {
         _estado = 'Conectando...';
       });
@@ -85,7 +87,7 @@ class _LlamadaPageState extends State<LlamadaPage> {
 
       print('\n${'═' * 70}');
       print('[LLAMADA] 🔌 INICIANDO CONEXIÓN A LIVEKIT');
-      print('${'═' * 70}');
+      print('═' * 70);
       print('[LLAMADA] Server URL: $serverUrl');
       print('[LLAMADA] Token length: ${token.length} chars\n');
 
@@ -114,50 +116,53 @@ class _LlamadaPageState extends State<LlamadaPage> {
 
       // Intentar conectar sin options primero - simple approach
       print('[LLAMADA] [2c] Llamando a connect() sin options...');
-      
+
       // NO esperar al Future directamente - usar polling del estado
       print('[LLAMADA] [2c1] Iniciando connect() sin esperar...');
       _room.connect(serverUrl, token);
       print('[LLAMADA] [2c2] Connect iniciado, ahora haciendo polling...');
-      
+
       // Monitorear el estado de la conexión con polling
       bool connected = false;
       int pollCount = 0;
       const int maxPolls = 16; // 8 segundos con 500ms de intervalo
       const Duration pollInterval = Duration(milliseconds: 500);
-      
+
       // Iniciar polling en background
       while (pollCount < maxPolls && !connected) {
         await Future.delayed(pollInterval);
         pollCount++;
-        
+
         // Verificar si hay un participante local (indicador de conexión)
         try {
           if (_room.localParticipant != null) {
-            print('[LLAMADA] [2d] ✅ LocalParticipant detectado (poll #$pollCount)');
+            print(
+                '[LLAMADA] [2d] ✅ LocalParticipant detectado (poll #$pollCount)');
             connected = true;
             break;
           }
         } catch (e) {
-          print('[LLAMADA] [2c-error-poll] Error verificando localParticipant: $e');
+          print(
+              '[LLAMADA] [2c-error-poll] Error verificando localParticipant: $e');
         }
-        
+
         if (pollCount % 4 == 0) {
           print('[LLAMADA] [polling] Intento $pollCount/$maxPolls');
         }
       }
-      
+
       if (!connected) {
-        print('[LLAMADA] ❌ Timeout en polling: connect() no completó en 8 segundos');
+        print(
+            '[LLAMADA] ❌ Timeout en polling: connect() no completó en 8 segundos');
         throw Exception('Timeout en conexión a LiveKit');
       }
-      
+
       print('[LLAMADA] [2e] Conexión completada!');
       print('[LLAMADA] [3] ✅ Conectado exitosamente!');
       print('${'═' * 70}\n');
 
       if (!mounted) return;
-      
+
       setState(() {
         _isConnected = true;
         _estado = 'Conectado con CRUE';
@@ -165,9 +170,9 @@ class _LlamadaPageState extends State<LlamadaPage> {
       });
     } catch (e, stackTrace) {
       ErrorHandler.logError('[LLAMADA-CONEXION]', e, stackTrace);
-      
+
       if (!mounted) return;
-      
+
       final userMessage = ErrorHandler.getErrorMessage(e);
       setState(() {
         _errorMessage = userMessage;
@@ -178,14 +183,14 @@ class _LlamadaPageState extends State<LlamadaPage> {
 
   Future<void> _toggleAudio() async {
     try {
-      final isEnabled = await _room.localParticipant?.isMicrophoneEnabled() ?? false;
-      
+      final isEnabled = _room.localParticipant?.isMicrophoneEnabled() ?? false;
+
       // Si va a habilitar, pedir permisos primero
       if (!isEnabled) {
         // Pequeño retraso para asegurar que los permisos estén listos
         await Future.delayed(const Duration(milliseconds: 500));
       }
-      
+
       await _room.localParticipant?.setMicrophoneEnabled(!isEnabled);
       setState(() {
         _isAudioEnabled = !isEnabled;
@@ -206,20 +211,20 @@ class _LlamadaPageState extends State<LlamadaPage> {
   Future<void> _finalizarLlamada() async {
     try {
       print('[LLAMADA] Finalizando llamada...');
-      
+
       // Detener estado actual
       setState(() {
         _isConnected = false;
         _estado = 'Desconectando...';
       });
-      
+
       // Desconectar y esperar
       if (_isConnected) {
         print('[LLAMADA] Iniciando desconexión...');
         try {
           await _room.disconnect().timeout(
-            const Duration(seconds: 3),
-          );
+                const Duration(seconds: 3),
+              );
           print('[LLAMADA] Desconexión completada');
         } on TimeoutException {
           print('[LLAMADA] Timeout en disconnect');
@@ -227,33 +232,34 @@ class _LlamadaPageState extends State<LlamadaPage> {
           print('[LLAMADA] Error en desconexión: $e');
         }
       }
-      
+
       // Limpiar listener
       try {
         await _listener.dispose().timeout(
-          const Duration(seconds: 2),
-        );
+              const Duration(seconds: 2),
+            );
         print('[LLAMADA] Listener disposado');
       } on TimeoutException {
         print('[LLAMADA] Timeout en listener.dispose');
       } catch (e) {
         print('[LLAMADA] Error disposing listener: $e');
       }
-      
+
       // Esperar a que el native plugin se estabilice
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       print('[LLAMADA] Pop seguro');
       if (!mounted) {
         print('[LLAMADA] Widget no montado');
         return;
       }
-      
+
       // Navegar a SeguimientoSolicitudPage en lugar de solo pop
       // Extraer el ID de la solicitud del objeto credenciales
-      final solicitud = widget.credenciales['solicitud'] as Map<String, dynamic>?;
+      final solicitud =
+          widget.credenciales['solicitud'] as Map<String, dynamic>?;
       final idSolicitud = solicitud?['id'] as int? ?? 0;
-      
+
       if (!mounted) return;
       if (idSolicitud > 0) {
         Navigator.of(context, rootNavigator: false).pushReplacementNamed(
@@ -302,9 +308,8 @@ class _LlamadaPageState extends State<LlamadaPage> {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: _errorMessage != null
-            ? _buildErrorWidget()
-            : _buildCallInterface(),
+        body:
+            _errorMessage != null ? _buildErrorWidget() : _buildCallInterface(),
       ),
     );
   }
@@ -537,12 +542,8 @@ class _LlamadaPageState extends State<LlamadaPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          _isAudioEnabled
-                              ? Icons.mic
-                              : Icons.mic_off,
-                          color: _isAudioEnabled
-                              ? Colors.green
-                              : Colors.red,
+                          _isAudioEnabled ? Icons.mic : Icons.mic_off,
+                          color: _isAudioEnabled ? Colors.green : Colors.red,
                           size: 16,
                         ),
                         const SizedBox(width: 8),
@@ -551,9 +552,7 @@ class _LlamadaPageState extends State<LlamadaPage> {
                               ? 'Micrófono activado'
                               : 'Micrófono desactivado',
                           style: TextStyle(
-                            color: _isAudioEnabled
-                                ? Colors.green
-                                : Colors.red,
+                            color: _isAudioEnabled ? Colors.green : Colors.red,
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),

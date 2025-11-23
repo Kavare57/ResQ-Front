@@ -146,4 +146,39 @@ class AuthApi {
       return null;
     }
   }
+
+  /// OBTENER ID_PERSONA DEL USUARIO ACTUAL: GET /usuarios/me
+  /// Headers: Authorization: Bearer <token>
+  /// Respuesta: { "id_persona": int | null }
+  Future<int?> obtenerIdPersonaActual(String token) async {
+    final url = Uri.parse('$baseUrl/usuarios/me');
+    print('[OBTENER_ID_PERSONA_ACTUAL] Obteniendo id_persona...');
+
+    try {
+      final res = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(_timeout, onTimeout: () {
+        throw Exception('Timeout obteniendo id_persona (10s)');
+      });
+
+      print('[OBTENER_ID_PERSONA_ACTUAL] Respuesta: ${res.statusCode}');
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final idPersona = data['id_persona'] as int?;
+        print('[OBTENER_ID_PERSONA_ACTUAL] ID persona: $idPersona');
+        return idPersona;
+      } else {
+        print(
+            '[OBTENER_ID_PERSONA_ACTUAL] Error: ${res.statusCode} ${res.body}');
+        return null;
+      }
+    } catch (e) {
+      print('[OBTENER_ID_PERSONA_ACTUAL] Error: $e');
+      return null;
+    }
+  }
 }

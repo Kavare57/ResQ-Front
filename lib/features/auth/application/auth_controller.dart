@@ -59,10 +59,10 @@ class AuthController {
           print('[LOGIN] 1/4 - Tipo usuario guardado: $tipoUsuario');
         }
 
-        // Obtener y guardar id_persona desde el endpoint especial
-        print('[LOGIN] 2/4 - Obteniendo id_persona...');
+        // Obtener y guardar id_persona desde GET /usuarios/me
+        print('[LOGIN] 2/4 - Obteniendo id_persona desde /usuarios/me...');
         try {
-          final idPersona = await _api.obtenerIdPersona(identifier, password);
+          final idPersona = await _api.obtenerIdPersonaActual(token);
           if (idPersona != null) {
             await _storage.savePersonaId(idPersona);
             print('[LOGIN] 2/4 - ID persona guardado: $idPersona');
@@ -170,14 +170,23 @@ class AuthController {
   }
 
   /// Verifica si hay un token válido almacenado.
-  /// En startup, solo verifica que exista el token (sin hacer llamada HTTP).
-  /// Esto acelera el inicio de la app significativamente.
+  /// Verifica que el token exista y no esté expirado.
+  /// Si el token está expirado, lo limpia automáticamente.
   Future<bool> isLoggedIn() async {
     final token = await _storage.getToken();
-    if (token == null) return false;
+    if (token == null) {
+      print('[AUTH] No hay token almacenado');
+      return false;
+    }
 
-    // En startup solo verificamos que el token exista
-    // La verificación real ocurre al hacer requests a la API
+    // Verificar si el token está expirado
+    if (JwtHelper.isTokenExpired(token)) {
+      print('[AUTH] Token expirado - limpiando sesión');
+      await _storage.clearToken();
+      return false;
+    }
+
+    print('[AUTH] Token válido encontrado');
     return true;
   }
 
