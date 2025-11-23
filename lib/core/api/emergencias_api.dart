@@ -10,18 +10,17 @@ class EmergenciasApi {
   Future<Map<String, dynamic>> solicitarAmbulancia({
     required double lat,
     required double lng,
-    required String nombrePaciente,
-    required String descripcion,
   }) async {
     final url = Uri.parse('$baseUrl/solicitudes/solicitar-ambulancia');
     print('[EMERGENCIA] Solicitando ambulancia...');
 
-    final ahora = DateTime.now().toUtc().toIso8601String();
-
-    // Obtener el id_persona del storage
+    // Obtener el id_persona del storage (este es el id_solicitante)
     final storage = StorageService();
-    final idPersona = await storage.getPersonaId() ?? 0;
-    print('[EMERGENCIA] Usando id_persona: $idPersona');
+    final idSolicitante = await storage.getPersonaId();
+    if (idSolicitante == null || idSolicitante == 0) {
+      throw Exception('No se encontró el ID del solicitante. Por favor, completa tu perfil.');
+    }
+    print('[EMERGENCIA] Usando id_solicitante: $idSolicitante');
     
     // Obtener el token JWT para autenticación
     final token = await storage.getToken();
@@ -31,21 +30,11 @@ class EmergenciasApi {
     print('[EMERGENCIA] Token obtenido: ${token.substring(0, 20)}...');
     
     final body = {
-      'solicitante': {
-        'id': idPersona,  // Usar el id_persona obtenido del storage
-        'nombre': nombrePaciente,
-        'apellido': 'Paciente',  // Campo requerido - no puede estar vacío
-        'fechaNacimiento': '2000-01-01',  // Fecha por defecto si no se proporciona
-        'tipoDocumento': 'CEDULA',  // El backend espera CEDULA o TARJETA_DE_IDENTIDAD
-        'numeroDocumento': '0000000000',  // Documento temporal
-        'padecimientos': []
-      },
+      'id_solicitante': idSolicitante,
       'ubicacion': {
         'latitud': lat,
         'longitud': lng,
-        'fechaHora': ahora
       },
-      'fechaHora': ahora
     };
 
     try {

@@ -9,6 +9,8 @@ import '../../../../core/api/emergencias_api.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../core/services/permissions_service.dart';
 import '../../../../core/services/location_service.dart';
+import '../../../../core/services/storage_service.dart';
+import '../../../../core/services/solicitante_websocket_service.dart';
 import '../../../../core/services/error_handler.dart';
 import '../../../../core/widgets/error_display_widget.dart';
 import '../../../llamada/presentation/pages/llamada_page.dart';
@@ -25,6 +27,7 @@ class NuevaEmergenciaPage extends StatefulWidget {
 class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
   final _direccionCtrl = TextEditingController();
   late MapController _mapController;
+  final _wsService = SolicitanteWebSocketService();
 
   // Ubicación por defecto: Bogotá, Colombia
   static const double defaultLat = 4.710989;
@@ -85,6 +88,7 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
   void dispose() {
     _direccionCtrl.dispose();
     _mapController.dispose();
+    _wsService.desconectar();
     super.dispose();
   }
 
@@ -271,8 +275,6 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       final sala = await api.solicitarAmbulancia(
         lat: lat,
         lng: lng,
-        nombrePaciente: 'Paciente',
-        descripcion: '',
       );
 
       print('[NUEVA_EMERGENCIA] Respuesta recibida:');
@@ -281,6 +283,21 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       print('[NUEVA_EMERGENCIA] identity: ${sala['identity']}');
       print('[NUEVA_EMERGENCIA] server_url: ${sala['server_url']}');
       print('[NUEVA_EMERGENCIA] Credenciales completas: $sala');
+
+      // Conectar al WebSocket del solicitante
+      try {
+        final storage = StorageService();
+        final idSolicitante = await storage.getPersonaId();
+        if (idSolicitante != null && idSolicitante > 0) {
+          print('[NUEVA_EMERGENCIA] Conectando al WebSocket del solicitante: $idSolicitante');
+          await _wsService.conectar(idSolicitante);
+        } else {
+          print('[NUEVA_EMERGENCIA] No se pudo obtener id_solicitante para WebSocket');
+        }
+      } catch (e) {
+        print('[NUEVA_EMERGENCIA] Error conectando al WebSocket: $e');
+        // No bloquear el flujo si falla el WebSocket
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
