@@ -3,7 +3,9 @@ import '../../../../core/constants/colors.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../../../core/services/jwt_helper.dart';
 import '../../../../core/services/error_handler.dart';
+import '../../../../core/services/solicitante_websocket_service.dart';
 import '../../../../core/widgets/error_display_widget.dart';
+import '../../../../core/widgets/emergencia_activa_card.dart';
 import '../../../auth/application/auth_controller.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../data/apis/historial_emergencias_api.dart';
@@ -23,10 +25,11 @@ class HomeSolicitantePage extends StatefulWidget {
   State<HomeSolicitantePage> createState() => _HomeSolicitantePageState();
 }
 
-class _HomeSolicitantePageState extends State<HomeSolicitantePage> {
+class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsBindingObserver {
   final _auth = AuthController();
   final _storage = StorageService();
   final _historialApi = HistorialEmergenciasApi();
+  final _wsSolicitanteService = SolicitanteWebSocketService();
 
   late String _nombreUsuario;
   bool _cargandoNombre = true;
@@ -35,11 +38,16 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> {
   bool _cargandoHistorial = true;
   String? _errorHistorial;
 
+  // Emergencia activa
+  Map<String, dynamic>? _emergenciaActiva;
+  bool _cargandoEmergenciaActiva = true;
+
   @override
   void initState() {
     super.initState();
     _nombreUsuario = widget.nombreUsuario;
     print('[HOME] Iniciando...');
+    WidgetsBinding.instance.addObserver(this);
     // Cargar nombre de forma lazy (cuando sea necesario renderizar)
   }
 
@@ -50,6 +58,24 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> {
     if (_cargandoNombre) {
       _cargarNombreDelStorage();
       _cargarHistorial();
+      _cargarEmergenciaActiva();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    // NO desconectar el websocket del solicitante - debe permanecer conectado
+    // _wsSolicitanteService.desconectar();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Recargar emergencia activa cuando la app vuelve al foreground
+    if (state == AppLifecycleState.resumed) {
+      _cargarEmergenciaActiva();
     }
   }
 
@@ -136,6 +162,132 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> {
     }
   }
 
+  Future<void> _cargarEmergenciaActiva() async {
+    if (!mounted) return;
+
+    try {
+      print('[HOME] Cargando emergencia activa...');
+      final emergencia = await _storage.getEmergenciaActiva();
+
+      if (!mounted) return;
+
+      setState(() {
+        _emergenciaActiva = emergencia;
+        _cargandoEmergenciaActiva = false;
+      });
+
+      // Siempre conectar al websocket del solicitante para recibir mensajes
+      // (incluso si no hay emergencia activa aún, puede llegar el ID en el primer mensaje)
+      print('[HOME] Verificando websocket del solicitante...');
+      _conectarWebSocketSolicitante();
+      
+      if (emergencia != null) {
+        print('[HOME] Emergencia activa encontrada con ID: ${emergencia['id']}');
+      } else {
+        print('[HOME] No hay emergencia activa - esperando ID por websocket');
+      }
+    } catch (e) {
+      print('[HOME] Error cargando emergencia activa: $e');
+      if (!mounted) return;
+      setState(() {
+        _cargandoEmergenciaActiva = false;
+      });
+    }
+  }
+
+  void _conectarWebSocketSolicitante() async {
+    try {
+      final idSolicitante = await _storage.getPersonaId();
+      if (idSolicitante == null || idSolicitante == 0) {
+        print('[HOME] No se pudo obtener id_solicitante para WebSocket');
+        return;
+      }
+
+      // Configurar callbacks antes de conectar
+      _wsSolicitanteService.onMensajeRecibido = (Map<String, dynamic> data) async {
+        print('[HOME] Mensaje recibido del websocket del solicitante: $data');
+        
+        // Procesar el mensaje - puede venir con "type" o "tipo"
+        final datos = data['data'] as Map<String, dynamic>?;
+        
+        if (datos != null) {
+          // Si el mensaje contiene información de estado o ID de emergencia
+          final estado = datos['estado'] as String?;
+          final idEmergencia = datos['id'] as int?; // El ID en el mensaje es el id_emergencia
+          
+          // Si viene el ID de emergencia, actualizar la emergencia activa
+          if (idEmergencia != null && idEmergencia != 0) {
+            final idEmergenciaFinal = idEmergencia;
+            
+            // Verificar si ya existe una emergencia activa
+            final emergenciaActual = await _storage.getEmergenciaActiva();
+            
+            if (emergenciaActual == null) {
+              // Crear nueva emergencia activa con id_emergencia
+              // Poner id_solicitud en 0 y guardar id_emergencia
+              await _storage.saveEmergenciaActiva(
+                idSolicitud: 0, // Poner en 0 cuando llega id_emergencia
+                idEmergencia: idEmergenciaFinal,
+                estado: estado ?? 'creada',
+                fecha: DateTime.now(),
+              );
+              print('[HOME] Emergencia activa creada con ID Emergencia: $idEmergenciaFinal, Estado: ${estado ?? 'creada'}');
+            } else {
+              // Actualizar: poner id_solicitud en 0 y guardar id_emergencia
+              await _storage.updateIdEmergenciaActiva(idEmergenciaFinal);
+              if (estado != null) {
+                await _storage.updateEstadoEmergenciaActiva(estado);
+                print('[HOME] Emergencia activa actualizada - ID Emergencia: $idEmergenciaFinal, Estado: $estado');
+              } else {
+                print('[HOME] Emergencia activa actualizada - ID Emergencia: $idEmergenciaFinal');
+              }
+            }
+            
+            // Recargar la emergencia activa para mostrarla
+            if (mounted) {
+              await _cargarEmergenciaActiva();
+            }
+          } else if (estado != null) {
+            // Si solo viene el estado (sin ID), actualizar si ya existe emergencia activa
+            final emergenciaActual = await _storage.getEmergenciaActiva();
+            if (emergenciaActual != null) {
+              await _storage.updateEstadoEmergenciaActiva(estado);
+              print('[HOME] Estado de emergencia actualizado: $estado');
+              if (mounted) {
+                await _cargarEmergenciaActiva();
+              }
+            }
+          }
+        }
+      };
+
+      _wsSolicitanteService.onError = (String error) {
+        print('[HOME] Error en websocket del solicitante: $error');
+      };
+
+      _wsSolicitanteService.onConexionPerdida = () {
+        print('[HOME] Conexión websocket del solicitante perdida, intentando reconectar...');
+        // Intentar reconectar después de un delay
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            _conectarWebSocketSolicitante();
+          }
+        });
+      };
+
+      // Conectar al websocket del solicitante (solo si no está conectado)
+      if (!_wsSolicitanteService.estaConectado) {
+        print('[HOME] Conectando al WebSocket del solicitante: $idSolicitante');
+        await _wsSolicitanteService.conectar(idSolicitante);
+        print('[HOME] WebSocket del solicitante conectado exitosamente');
+      } else {
+        print('[HOME] WebSocket del solicitante ya está conectado');
+      }
+    } catch (e) {
+      print('[HOME] Error conectando al WebSocket del solicitante: $e');
+    }
+  }
+
   // ----------- CERRAR SESIÓN -----------
   Future<void> _logout() async {
     await _auth.logout();
@@ -213,12 +365,29 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> {
                       MaterialPageRoute(
                         builder: (_) => const NuevaEmergenciaPage(),
                       ),
-                    );
+                    ).then((_) {
+                      // Recargar emergencia activa cuando se regrese de crear emergencia
+                      _cargarEmergenciaActiva();
+                    });
                   },
                 ),
               ),
 
               const SizedBox(height: 24),
+
+              // ******** EMERGENCIA ACTIVA ********
+              if (!_cargandoEmergenciaActiva && _emergenciaActiva != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: EmergenciaActivaCard(
+                    estado: _emergenciaActiva!['estado'] as String,
+                    fecha: _emergenciaActiva!['fecha'] as DateTime,
+                    idSolicitud: _emergenciaActiva!['id'] as int?,
+                  ),
+                ),
+
+              if (!_cargandoEmergenciaActiva && _emergenciaActiva != null)
+                const SizedBox(height: 24),
 
               // ******** TARJETA: Contactos de emergencia ********
               Padding(

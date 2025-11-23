@@ -609,12 +609,8 @@ class _LlamadaPageState extends State<LlamadaPage> {
   void _stopAudioDetection() {
     _audioDetectionTimer?.cancel();
     _audioDetectionTimer = null;
-    if (mounted) {
-      setState(() {
-        _isDetectingSound = false;
-        _audioLevel = 0.0;
-      });
-    }
+    // No actualizar el estado aquí si se llama desde dispose()
+    // El widget se está desmontando, no tiene sentido actualizar el estado
   }
 
   Future<void> _toggleSpeaker() async {
@@ -647,13 +643,25 @@ class _LlamadaPageState extends State<LlamadaPage> {
         await _listener!.dispose();
       }
 
+      // NO crear emergencia activa al colgar - solo se creará cuando llegue el ID por websocket
+      print('[LLAMADA] Colgando llamada - el recuadro aparecerá cuando llegue el ID por websocket');
+
       if (mounted) {
-        Navigator.of(context).pop();
+        // Regresar directamente a HomeSolicitantePage (saltando NuevaEmergenciaPage)
+        // Hacer pop dos veces: una para salir de LlamadaPage, otra para salir de NuevaEmergenciaPage
+        Navigator.of(context).pop(); // Sale de LlamadaPage
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(); // Sale de NuevaEmergenciaPage, regresa a Home
+        }
       }
     } catch (e) {
       print('[LLAMADA] Error al colgar: $e');
       if (mounted) {
-        Navigator.of(context).pop();
+        // Regresar directamente a HomeSolicitantePage
+        Navigator.of(context).pop(); // Sale de LlamadaPage
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(); // Sale de NuevaEmergenciaPage, regresa a Home
+        }
       }
     }
   }

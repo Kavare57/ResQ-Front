@@ -88,7 +88,8 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
   void dispose() {
     _direccionCtrl.dispose();
     _mapController.dispose();
-    _wsService.desconectar();
+    // NO desconectar el websocket aquí - debe permanecer conectado para recibir actualizaciones
+    // _wsService.desconectar();
     super.dispose();
   }
 
@@ -284,7 +285,16 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       print('[NUEVA_EMERGENCIA] server_url: ${sala['server_url']}');
       print('[NUEVA_EMERGENCIA] Credenciales completas: $sala');
 
-      // Conectar al WebSocket del solicitante
+      // Guardar id_solicitud cuando se recibe la respuesta
+      final idSolicitud = sala['id_solicitud'];
+      if (idSolicitud != null) {
+        final storage = StorageService();
+        final idFinal = idSolicitud is int ? idSolicitud : int.parse(idSolicitud.toString());
+        await storage.saveIdSolicitud(idFinal);
+        print('[NUEVA_EMERGENCIA] ID de solicitud guardado: $idFinal');
+      }
+
+      // Conectar al WebSocket del solicitante (NO se desconecta al colgar)
       try {
         final storage = StorageService();
         final idSolicitante = await storage.getPersonaId();
@@ -305,6 +315,8 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
           content: Text('Emergencia registrada. Conectando con operador...'),
         ),
       );
+
+      // No necesitamos guardar el ID aquí, se recibirá por websocket
 
       // Navegar a la pantalla de llamada
       Navigator.push(

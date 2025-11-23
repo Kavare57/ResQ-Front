@@ -7,6 +7,12 @@ class StorageService {
   static const _tipoUsuarioKey = 'tipo_usuario';
   static const _personaIdKey = 'persona_id';
   static const _rememberKey = 'remember_me';
+  static const _emergenciaActivaIdSolicitudKey =
+      'emergencia_activa_id_solicitud';
+  static const _emergenciaActivaIdEmergenciaKey =
+      'emergencia_activa_id_emergencia';
+  static const _emergenciaActivaEstadoKey = 'emergencia_activa_estado';
+  static const _emergenciaActivaFechaKey = 'emergencia_activa_fecha';
 
   Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -77,5 +83,82 @@ class StorageService {
     await prefs.remove(_personaIdKey);
     await prefs.remove(_rememberKey);
   }
-}
 
+  // Métodos para emergencia activa
+  Future<void> saveIdSolicitud(int idSolicitud) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_emergenciaActivaIdSolicitudKey, idSolicitud);
+  }
+
+  Future<void> saveEmergenciaActiva({
+    int? idSolicitud,
+    int? idEmergencia,
+    required String estado,
+    required DateTime fecha,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (idSolicitud != null && idSolicitud > 0) {
+      await prefs.setInt(_emergenciaActivaIdSolicitudKey, idSolicitud);
+    }
+    if (idEmergencia != null && idEmergencia > 0) {
+      await prefs.setInt(_emergenciaActivaIdEmergenciaKey, idEmergencia);
+    }
+    await prefs.setString(_emergenciaActivaEstadoKey, estado);
+    await prefs.setString(_emergenciaActivaFechaKey, fecha.toIso8601String());
+  }
+
+  Future<void> updateIdEmergenciaActiva(int idEmergencia) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_emergenciaActivaIdEmergenciaKey, idEmergencia);
+    // Poner id_solicitud en 0 cuando se recibe el id_emergencia
+    await prefs.setInt(_emergenciaActivaIdSolicitudKey, 0);
+  }
+
+  Future<void> clearIdSolicitud() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_emergenciaActivaIdSolicitudKey, 0);
+  }
+
+  Future<Map<String, dynamic>?> getEmergenciaActiva() async {
+    final prefs = await SharedPreferences.getInstance();
+    final idSolicitud = prefs.getInt(_emergenciaActivaIdSolicitudKey);
+    final idEmergencia = prefs.getInt(_emergenciaActivaIdEmergenciaKey);
+    final estado = prefs.getString(_emergenciaActivaEstadoKey);
+    final fechaStr = prefs.getString(_emergenciaActivaFechaKey);
+
+    // Solo mostrar el recuadro si hay un ID de emergencia válido (no null y no 0)
+    // El id_solicitud se pone en 0 cuando llega el id_emergencia
+    final idFinal = idEmergencia ??
+        (idSolicitud != null && idSolicitud > 0 ? idSolicitud : null);
+
+    if (idFinal == null || idFinal == 0) {
+      return null;
+    }
+
+    // También necesitamos estado y fecha
+    if (estado == null || fechaStr == null) {
+      return null;
+    }
+
+    return {
+      'id': idFinal,
+      'id_solicitud': idSolicitud ?? 0,
+      'id_emergencia': idEmergencia,
+      'estado': estado,
+      'fecha': DateTime.parse(fechaStr),
+    };
+  }
+
+  Future<void> updateEstadoEmergenciaActiva(String estado) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_emergenciaActivaEstadoKey, estado);
+  }
+
+  Future<void> clearEmergenciaActiva() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_emergenciaActivaIdSolicitudKey);
+    await prefs.remove(_emergenciaActivaIdEmergenciaKey);
+    await prefs.remove(_emergenciaActivaEstadoKey);
+    await prefs.remove(_emergenciaActivaFechaKey);
+  }
+}

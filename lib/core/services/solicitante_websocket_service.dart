@@ -6,10 +6,21 @@ import '../constants/env.dart';
 class SolicitanteWebSocketService {
   WebSocketChannel? _canal;
   int? _idSolicitante;
+  
+  // Callbacks para eventos
+  Function(Map<String, dynamic>)? onMensajeRecibido;
+  Function(String)? onError;
+  Function()? onConexionPerdida;
 
   /// Conecta al WebSocket del solicitante
   Future<void> conectar(int idSolicitante) async {
     try {
+      // Si ya está conectado al mismo solicitante, no reconectar
+      if (_canal != null && _idSolicitante == idSolicitante) {
+        print('[WS-SOLICITANTE] Ya está conectado al solicitante: $idSolicitante');
+        return;
+      }
+
       _idSolicitante = idSolicitante;
       final wsUrl = '${Env.wsBaseUrl}/ws/solicitantes/$idSolicitante';
 
@@ -22,8 +33,10 @@ class SolicitanteWebSocketService {
           print('[WS-SOLICITANTE] Mensaje recibido: $mensaje');
           try {
             // Intentar parsear como JSON
-            final data = jsonDecode(mensaje as String);
+            final data = jsonDecode(mensaje as String) as Map<String, dynamic>;
             print('[WS-SOLICITANTE] Mensaje JSON: $data');
+            // Llamar al callback si está configurado
+            onMensajeRecibido?.call(data);
           } catch (e) {
             // Si no es JSON, imprimir como texto plano
             print('[WS-SOLICITANTE] Mensaje texto: $mensaje');
@@ -31,9 +44,12 @@ class SolicitanteWebSocketService {
         },
         onError: (error) {
           print('[WS-SOLICITANTE] Error en WebSocket: $error');
+          onError?.call('Error en WebSocket: $error');
+          onConexionPerdida?.call();
         },
         onDone: () {
           print('[WS-SOLICITANTE] WebSocket cerrado');
+          onConexionPerdida?.call();
         },
       );
 
@@ -41,6 +57,7 @@ class SolicitanteWebSocketService {
     } catch (e, stackTrace) {
       print('[WS-SOLICITANTE] Error conectando: $e');
       print('[WS-SOLICITANTE] Stack: $stackTrace');
+      onError?.call('Error conectando: $e');
       rethrow;
     }
   }
