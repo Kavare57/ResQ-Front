@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../../../../core/constants/env.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../../../core/services/error_handler.dart';
+import '../../../../core/services/jwt_helper.dart';
 import '../../../../core/api/auth_api.dart';
 import '../models/emergencia_historial.dart';
 
@@ -28,7 +29,15 @@ class HistorialEmergenciasApi {
         print('[HISTORIAL] ID no en storage, obteniendo desde /usuarios/me...');
         try {
           final authApi = AuthApi();
-          final idFromApi = await authApi.obtenerIdPersonaActual(token);
+          final idUsuario = JwtHelper.getIdUsuario(token);
+          if (idUsuario == null) {
+            throw Exception(
+                'No se pudo obtener el ID del usuario del token. Inicia sesión nuevamente.');
+          }
+          final idFromApi = await authApi.obtenerIdPersonaActual(
+            token: token,
+            idUsuario: idUsuario,
+          );
           if (idFromApi != null && idFromApi > 0) {
             idPersona = idFromApi;
             // Guardar para futuras consultas

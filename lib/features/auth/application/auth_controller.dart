@@ -95,19 +95,25 @@ class AuthController {
 
         // Obtener y guardar id_persona desde GET /usuarios/me
         if (!personaGuardada) {
-          print('[LOGIN] 2/4 - Obteniendo id_persona desde /usuarios/me...');
-          try {
-            final idPersona = await _api.obtenerIdPersonaActual(token);
-            if (idPersona != null) {
-              await _storage.savePersonaId(idPersona);
-              print('[LOGIN] 2/4 - ID persona guardado: $idPersona');
-              personaGuardada = true;
-            } else {
-              print(
-                  '[LOGIN] 2/4 - Usuario sin persona asignada (perfil incompleto o rol diferente)');
+          if (idUsuario == null) {
+            print(
+                '[LOGIN] 2/4 - No se puede obtener id_persona sin id_usuario en el token.');
+          } else {
+            print('[LOGIN] 2/4 - Obteniendo id_persona desde /usuarios/me...');
+            try {
+              final idPersona = await _api.obtenerIdPersonaActual(
+                  token: token, idUsuario: idUsuario);
+              if (idPersona != null) {
+                await _storage.savePersonaId(idPersona);
+                print('[LOGIN] 2/4 - ID persona guardado: $idPersona');
+                personaGuardada = true;
+              } else {
+                print(
+                    '[LOGIN] 2/4 - Usuario sin persona asignada (perfil incompleto o rol diferente)');
+              }
+            } catch (e) {
+              print('[LOGIN] 2/4 - Error obteniendo id_persona: $e');
             }
-          } catch (e) {
-            print('[LOGIN] 2/4 - Error obteniendo id_persona: $e');
           }
         } else {
           print(

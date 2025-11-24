@@ -161,11 +161,14 @@ class AuthApi {
     }
   }
 
-  /// OBTENER ID_PERSONA DEL USUARIO ACTUAL: GET /usuarios/me
+  /// OBTENER ID_PERSONA DEL USUARIO ACTUAL: GET /usuarios/me?id_usuario=...
   /// Headers: Authorization: Bearer <token>
   /// Respuesta: { "id_persona": int | null }
-  Future<int?> obtenerIdPersonaActual(String token) async {
-    final url = Uri.parse('$baseUrl/usuarios/me');
+  Future<int?> obtenerIdPersonaActual({
+    required String token,
+    required int idUsuario,
+  }) async {
+    final url = Uri.parse('$baseUrl/usuarios/me?id_usuario=$idUsuario');
     print('[OBTENER_ID_PERSONA_ACTUAL] Obteniendo id_persona...');
 
     try {
