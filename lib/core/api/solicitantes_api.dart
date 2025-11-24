@@ -253,6 +253,8 @@ class SolicitantesApi {
       }
       
       print('[SOLICITANTE] Asociación usuario-persona exitosa');
+      await _storage.savePersonaId(idPersona);
+      print('[SOLICITANTE] ID persona guardado localmente: $idPersona');
     } catch (e) {
       print('[SOLICITANTE] Error en _asociarUsuarioConPersona: $e');
       rethrow;  // Relanzar para que guardarPerfil maneje el error
