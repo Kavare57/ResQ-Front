@@ -182,25 +182,32 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Row(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Checkbox(
-                        value: _remember,
-                        onChanged: (v) =>
-                            setState(() => _remember = v ?? false),
-                        activeColor: ResQColors.primary500,
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _remember,
+                            onChanged: (v) =>
+                                setState(() => _remember = v ?? false),
+                            activeColor: ResQColors.primary500,
+                          ),
+                          const Text('Recuérdame'),
+                        ],
                       ),
-                      const Text('Recuérdame'),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () {
-                          // TODO: pantalla de recuperación de contraseña
-                        },
-                        child: const Text(
-                          '¿Recuperar contraseña?',
-                          style: TextStyle(
-                            color: ResQColors.primary600,
-                            fontWeight: FontWeight.w600,
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: () {
+                            // TODO: pantalla de recuperación de contraseña
+                          },
+                          child: const Text(
+                            '¿Recuperar contraseña?',
+                            style: TextStyle(
+                              color: ResQColors.primary600,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),

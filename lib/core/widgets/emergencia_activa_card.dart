@@ -410,11 +410,14 @@ class _EmergenciaActivaCardState extends State<EmergenciaActivaCard>
                       color: _asignadaEndColor,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      'Presione para iniciar el seguimiento',
-                      style: TextStyle(
-                        color: _asignadaEndColor,
-                        fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: Text(
+                        'Presione para iniciar el seguimiento',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _asignadaEndColor,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
