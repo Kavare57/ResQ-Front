@@ -10,7 +10,6 @@ import '../../../../core/constants/colors.dart';
 import '../../../../core/services/permissions_service.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../core/services/storage_service.dart';
-import '../../../../core/services/solicitante_websocket_service.dart';
 import '../../../../core/services/error_handler.dart';
 import '../../../../core/widgets/error_display_widget.dart';
 import '../../../llamada/presentation/pages/llamada_page.dart';
@@ -27,7 +26,6 @@ class NuevaEmergenciaPage extends StatefulWidget {
 class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
   final _direccionCtrl = TextEditingController();
   late MapController _mapController;
-  final _wsService = SolicitanteWebSocketService();
 
   // Ubicación por defecto: Bogotá, Colombia
   static const double defaultLat = 4.710989;
@@ -302,20 +300,8 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
             '[NUEVA_EMERGENCIA] ID de solicitud guardado y recuadro creado: $idFinal');
       }
 
-      // Conectar al WebSocket del solicitante (NO se desconecta al colgar)
-      try {
-        final storage = StorageService();
-        final idSolicitante = await storage.getPersonaId();
-        if (idSolicitante != null && idSolicitante > 0) {
-          print('[NUEVA_EMERGENCIA] Conectando al WebSocket del solicitante: $idSolicitante');
-          await _wsService.conectar(idSolicitante);
-        } else {
-          print('[NUEVA_EMERGENCIA] No se pudo obtener id_solicitante para WebSocket');
-        }
-      } catch (e) {
-        print('[NUEVA_EMERGENCIA] Error conectando al WebSocket: $e');
-        // No bloquear el flujo si falla el WebSocket
-      }
+      // El websocket se conectará automáticamente en el home cuando detecte la emergencia activa
+      print('[NUEVA_EMERGENCIA] Emergencia activa guardada - el websocket se conectará en el home');
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -78,5 +78,21 @@ class SolicitanteWebSocketService {
 
   /// Verifica si está conectado
   bool get estaConectado => _canal != null;
+
+  /// Envía un mensaje al servidor por WebSocket
+  void enviarMensaje(Map<String, dynamic> mensaje) {
+    try {
+      if (_canal == null) {
+        print('[WS-SOLICITANTE] No se puede enviar mensaje: WebSocket no está conectado');
+        return;
+      }
+      
+      final mensajeJson = jsonEncode(mensaje);
+      _canal!.sink.add(mensajeJson);
+      print('[WS-SOLICITANTE] Mensaje enviado: $mensajeJson');
+    } catch (e) {
+      print('[WS-SOLICITANTE] Error enviando mensaje: $e');
+    }
+  }
 }
 

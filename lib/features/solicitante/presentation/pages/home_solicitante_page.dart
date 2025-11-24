@@ -177,15 +177,17 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
         _cargandoEmergenciaActiva = false;
       });
 
-      // Siempre conectar al websocket del solicitante para recibir mensajes
-      // (incluso si no hay emergencia activa aún, puede llegar el ID en el primer mensaje)
-      print('[HOME] Verificando websocket del solicitante...');
-      _conectarWebSocketSolicitante();
-      
+      // Solo conectar al websocket si hay una emergencia activa
       if (emergencia != null) {
-        print('[HOME] Emergencia activa encontrada con ID: ${emergencia['id']}');
+        print('[HOME] Emergencia activa encontrada con ID: ${emergencia['id']} - conectando websocket');
+        _conectarWebSocketSolicitante();
       } else {
-        print('[HOME] No hay emergencia activa - esperando ID por websocket');
+        print('[HOME] No hay emergencia activa - no se conectará el websocket');
+        // Desconectar si está conectado pero no hay emergencia activa
+        if (_wsSolicitanteService.estaConectado) {
+          print('[HOME] Desconectando websocket porque no hay emergencia activa');
+          _wsSolicitanteService.desconectar();
+        }
       }
     } catch (e) {
       print('[HOME] Error cargando emergencia activa: $e');
@@ -243,6 +245,12 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
                 fecha: DateTime.now(),
               );
               print('[HOME] Emergencia activa creada con ID Emergencia: $idEmergenciaFinal, Estado: ${estado ?? 'creada'}');
+              
+              // Conectar websocket si no está conectado (porque ahora hay emergencia activa)
+              if (!_wsSolicitanteService.estaConectado) {
+                print('[HOME] Conectando websocket porque se creó una emergencia activa');
+                _conectarWebSocketSolicitante();
+              }
             } else {
               // Actualizar: poner id_solicitud en 0 y guardar id_emergencia
               await _storage.updateIdEmergenciaActiva(idEmergenciaFinal);
@@ -446,6 +454,11 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
                         onPressed: () async {
                           await _storage.setTieneEmergenciaActiva(false);
                           await _storage.clearEmergenciaActiva();
+                          // Desconectar websocket porque ya no hay emergencia activa
+                          if (_wsSolicitanteService.estaConectado) {
+                            print('[HOME] Desconectando websocket porque se limpió la emergencia activa');
+                            _wsSolicitanteService.desconectar();
+                          }
                           if (mounted) {
                             setState(() {
                               _emergenciaActiva = null;
