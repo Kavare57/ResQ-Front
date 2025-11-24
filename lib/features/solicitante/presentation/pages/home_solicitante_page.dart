@@ -244,8 +244,17 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
             }
             
             // Recargar la emergencia activa para mostrarla
+            // Actualizar en memoria sin recargar todo
             if (mounted) {
-              await _cargarEmergenciaActiva();
+              setState(() {
+                _emergenciaActiva = {
+                  'id': idEmergenciaFinal,
+                  'id_solicitud': 0,
+                  'id_emergencia': idEmergenciaFinal,
+                  'estado': estado ?? 'creada',
+                  'fecha': DateTime.now(),
+                };
+              });
             }
           } else if (estado != null) {
             // Si solo viene el estado (sin ID), actualizar si ya existe emergencia activa
@@ -254,7 +263,9 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
               await _storage.updateEstadoEmergenciaActiva(estado);
               print('[HOME] Estado de emergencia actualizado: $estado');
               if (mounted) {
-                await _cargarEmergenciaActiva();
+                setState(() {
+                  _emergenciaActiva!['estado'] = estado;
+                });
               }
             }
           }
