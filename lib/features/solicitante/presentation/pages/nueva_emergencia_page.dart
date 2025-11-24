@@ -295,6 +295,8 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
           idSolicitud: idFinal,
           estado: 'creada',
           fecha: DateTime.now(),
+          latitud: lat,
+          longitud: lng,
         );
         print(
             '[NUEVA_EMERGENCIA] ID de solicitud guardado y recuadro creado: $idFinal');

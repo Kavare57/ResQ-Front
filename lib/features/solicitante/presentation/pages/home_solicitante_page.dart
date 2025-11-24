@@ -12,6 +12,7 @@ import '../../data/apis/historial_emergencias_api.dart';
 import '../../data/models/emergencia_historial.dart';
 import 'perfil_solicitante_page.dart';
 import 'nueva_emergencia_page.dart';
+import 'seguimiento_emergencia_page.dart';
 
 class HomeSolicitantePage extends StatefulWidget {
   final String nombreUsuario;
@@ -207,6 +208,16 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
       _wsSolicitanteService.onMensajeRecibido = (Map<String, dynamic> data) async {
         print('[HOME] Mensaje recibido del websocket del solicitante: $data');
         
+        final tipo = data['tipo'] as String?;
+        
+        // Procesar mensajes de ubicación de ambulancia
+        if (tipo == 'ubicacion_ambulancia') {
+          // Este mensaje se procesará en la pantalla de seguimiento
+          // Solo logueamos aquí
+          print('[HOME] Mensaje de ubicación de ambulancia recibido (se procesará en seguimiento)');
+          return;
+        }
+        
         // Procesar el mensaje - puede venir con "type" o "tipo"
         final datos = data['data'] as Map<String, dynamic>?;
         
@@ -396,6 +407,35 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
                         estado: _emergenciaActiva!['estado'] as String,
                         fecha: _emergenciaActiva!['fecha'] as DateTime,
                         idSolicitud: _emergenciaActiva!['id'] as int?,
+                        onIniciarSeguimiento: () async {
+                          final emergencia = await _storage.getEmergenciaActiva();
+                          if (emergencia != null) {
+                            final latitud = emergencia['latitud'] as double?;
+                            final longitud = emergencia['longitud'] as double?;
+                            
+                            if (latitud != null && longitud != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => SeguimientoEmergenciaPage(
+                                    latitudEmergencia: latitud,
+                                    longitudEmergencia: longitud,
+                                    wsService: _wsSolicitanteService,
+                                  ),
+                                ),
+                              ).then((_) {
+                                // Recargar emergencia activa cuando se regrese
+                                _cargarEmergenciaActiva();
+                              });
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('No se encontró la ubicación de la emergencia'),
+                                ),
+                              );
+                            }
+                          }
+                        },
                       ),
                       const SizedBox(height: 12),
                       // Botón temporal de pruebas para limpiar flag de emergencia activa

@@ -5,12 +5,14 @@ class EmergenciaActivaCard extends StatefulWidget {
   final String estado;
   final DateTime fecha;
   final int? idSolicitud;
+  final VoidCallback? onIniciarSeguimiento;
 
   const EmergenciaActivaCard({
     super.key,
     required this.estado,
     required this.fecha,
     this.idSolicitud,
+    this.onIniciarSeguimiento,
   });
 
   @override
@@ -391,36 +393,39 @@ class _EmergenciaActivaCardState extends State<EmergenciaActivaCard>
             ],
             if (_isAsignada) ...[
               const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: _asignadaEndColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _asignadaEndColor.withOpacity(0.4),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.touch_app,
-                      color: _asignadaEndColor,
+              GestureDetector(
+                onTap: widget.onIniciarSeguimiento,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: _asignadaEndColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _asignadaEndColor.withOpacity(0.4),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Presione para iniciar el seguimiento',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _asignadaEndColor,
-                          fontWeight: FontWeight.w600,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.touch_app,
+                        color: _asignadaEndColor,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Presione para iniciar el seguimiento',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _asignadaEndColor,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],

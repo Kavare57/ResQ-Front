@@ -14,6 +14,8 @@ class StorageService {
   static const _emergenciaActivaEstadoKey = 'emergencia_activa_estado';
   static const _emergenciaActivaFechaKey = 'emergencia_activa_fecha';
   static const _emergenciaActivaFlagKey = 'emergencia_activa_flag';
+  static const _emergenciaActivaLatKey = 'emergencia_activa_lat';
+  static const _emergenciaActivaLngKey = 'emergencia_activa_lng';
 
   Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -97,6 +99,8 @@ class StorageService {
     int? idEmergencia,
     required String estado,
     required DateTime fecha,
+    double? latitud,
+    double? longitud,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     if (idSolicitud != null && idSolicitud > 0) {
@@ -107,6 +111,12 @@ class StorageService {
     }
     await prefs.setString(_emergenciaActivaEstadoKey, estado);
     await prefs.setString(_emergenciaActivaFechaKey, fecha.toIso8601String());
+    if (latitud != null) {
+      await prefs.setDouble(_emergenciaActivaLatKey, latitud);
+    }
+    if (longitud != null) {
+      await prefs.setDouble(_emergenciaActivaLngKey, longitud);
+    }
     await prefs.setBool(_emergenciaActivaFlagKey, true);
   }
 
@@ -129,6 +139,8 @@ class StorageService {
     final idEmergencia = prefs.getInt(_emergenciaActivaIdEmergenciaKey);
     final estado = prefs.getString(_emergenciaActivaEstadoKey);
     final fechaStr = prefs.getString(_emergenciaActivaFechaKey);
+    final latitud = prefs.getDouble(_emergenciaActivaLatKey);
+    final longitud = prefs.getDouble(_emergenciaActivaLngKey);
 
     // Solo mostrar el recuadro si hay un ID de emergencia válido (no null y no 0)
     // El id_solicitud se pone en 0 cuando llega el id_emergencia
@@ -150,6 +162,8 @@ class StorageService {
       'id_emergencia': idEmergencia,
       'estado': estado,
       'fecha': DateTime.parse(fechaStr),
+      'latitud': latitud,
+      'longitud': longitud,
     };
   }
 
@@ -164,6 +178,8 @@ class StorageService {
     await prefs.remove(_emergenciaActivaIdEmergenciaKey);
     await prefs.remove(_emergenciaActivaEstadoKey);
     await prefs.remove(_emergenciaActivaFechaKey);
+    await prefs.remove(_emergenciaActivaLatKey);
+    await prefs.remove(_emergenciaActivaLngKey);
     await prefs.setBool(_emergenciaActivaFlagKey, false);
   }
 
