@@ -473,24 +473,32 @@ class _SeguimientoEmergenciaPageState
                           const SizedBox(height: 12),
                           if (_ambulanciaLat != null && _ambulanciaLng != null) ...[
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Icon(Icons.straighten, size: 20),
                                 const SizedBox(width: 8),
-                                Text(
-                                  'Distancia: ${_formatDistancia(_distanciaMetros)}',
-                                  style: const TextStyle(fontSize: 16),
+                                Expanded(
+                                  child: Text(
+                                    'Distancia: ${_formatDistancia(_distanciaMetros)}',
+                                    style: const TextStyle(fontSize: 16),
+                                    softWrap: true,
+                                  ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 8),
                             if (_tiempoEstimado != null)
                               Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Icon(Icons.access_time, size: 20),
                                   const SizedBox(width: 8),
-                                  Text(
-                                    'Tiempo estimado: $_tiempoEstimado',
-                                    style: const TextStyle(fontSize: 16),
+                                  Expanded(
+                                    child: Text(
+                                      'Tiempo estimado: $_tiempoEstimado',
+                                      style: const TextStyle(fontSize: 16),
+                                      softWrap: true,
+                                    ),
                                   ),
                                 ],
                               ),

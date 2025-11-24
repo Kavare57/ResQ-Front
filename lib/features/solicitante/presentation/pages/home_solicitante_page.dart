@@ -445,55 +445,12 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
                           }
                         },
                       ),
-                      const SizedBox(height: 12),
-                      // Botón temporal de pruebas para limpiar flag de emergencia activa
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                        ),
-                        onPressed: () async {
-                          await _storage.setTieneEmergenciaActiva(false);
-                          await _storage.clearEmergenciaActiva();
-                          // Desconectar websocket porque ya no hay emergencia activa
-                          if (_wsSolicitanteService.estaConectado) {
-                            print('[HOME] Desconectando websocket porque se limpió la emergencia activa');
-                            _wsSolicitanteService.desconectar();
-                          }
-                          if (mounted) {
-                            setState(() {
-                              _emergenciaActiva = null;
-                            });
-                          }
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    'Flag de emergencia activa limpiado (solo pruebas)'),
-                              ),
-                            );
-                          }
-                        },
-                        child: const Text('TEST: Limpiar emergencia activa'),
-                      ),
                     ],
                   ),
                 ),
 
               if (!_cargandoEmergenciaActiva && _emergenciaActiva != null)
                 const SizedBox(height: 24),
-
-              // ******** TARJETA: Contactos de emergencia ********
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: _InfoCard(
-                  title: 'Contactos de emergencia',
-                  subtitle:
-                      'Agrega familiares o contactos de confianza para avisos rápidos.',
-                  icon: Icons.group_outlined,
-                ),
-              ),
-
-              const SizedBox(height: 12),
 
               // ******** TARJETA: Historial de emergencias ********
               Padding(
@@ -671,62 +628,6 @@ class _SosCard extends StatelessWidget {
                     color: Colors.white,
                   ),
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ----------- TARJETA DE INFORMACIÓN -----------
-class _InfoCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-
-  const _InfoCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: ResQColors.onPrimary,
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: ResQColors.primary100,
-              child: Icon(icon, color: ResQColors.primary600),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.black54,
-                    ),
-                  ),
-                ],
               ),
             ),
           ],
