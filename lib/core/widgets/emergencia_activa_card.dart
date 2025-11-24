@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/colors.dart';
 
-class EmergenciaActivaCard extends StatelessWidget {
+class EmergenciaActivaCard extends StatefulWidget {
   final String estado;
   final DateTime fecha;
   final int? idSolicitud;
@@ -12,6 +12,68 @@ class EmergenciaActivaCard extends StatelessWidget {
     required this.fecha,
     this.idSolicitud,
   });
+
+  @override
+  State<EmergenciaActivaCard> createState() => _EmergenciaActivaCardState();
+}
+
+class _EmergenciaActivaCardState extends State<EmergenciaActivaCard>
+    with SingleTickerProviderStateMixin {
+  static const Color _valoradaStartColor = Colors.amber;
+  static const Color _valoradaEndColor = Colors.blue;
+
+  late AnimationController _valoradaController;
+  late Animation<double> _valoradaScale;
+
+  bool get _isValorada =>
+      widget.estado.toUpperCase() == 'VALORADA' ||
+      widget.estado.toUpperCase() == 'EMERGENCIA_VALORADA';
+
+  @override
+  void initState() {
+    super.initState();
+    _valoradaController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _valoradaScale = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 1.08)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 50,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.08, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeIn)),
+        weight: 50,
+      ),
+    ]).animate(_valoradaController);
+
+    if (_isValorada) {
+      _valoradaController.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant EmergenciaActivaCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final wasValorada = oldWidget.estado.toUpperCase() == 'VALORADA' ||
+        oldWidget.estado.toUpperCase() == 'EMERGENCIA_VALORADA';
+
+    if (_isValorada && !wasValorada) {
+      _valoradaController.forward(from: 0);
+    } else if (!_isValorada && wasValorada) {
+      _valoradaController.stop();
+      _valoradaController.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _valoradaController.dispose();
+    super.dispose();
+  }
 
   String _getEstadoLabel(String estado) {
     switch (estado.toUpperCase()) {
@@ -68,7 +130,7 @@ class EmergenciaActivaCard extends StatelessWidget {
       case 'EMERGENCIA_CREADA':
         return Colors.orange;
       case 'VALORADA':
-        return Colors.amber; // Amarillo/naranja para valorada
+        return _valoradaEndColor;
       case 'AMBULANCIA_ASIGNADA':
       case 'ASIGNADA':
         return Colors.purple;
@@ -90,7 +152,7 @@ class EmergenciaActivaCard extends StatelessWidget {
           case 'emergencia_creada':
             return Colors.orange;
           case 'valorada':
-            return Colors.amber; // Amarillo/naranja para valorada
+            return _valoradaEndColor;
           case 'ambulancia_asignada':
           case 'asignada':
             return Colors.purple;
@@ -132,9 +194,48 @@ class EmergenciaActivaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final estadoColor = _getEstadoColor(estado);
-    final estadoLabel = _getEstadoLabel(estado);
+    final estadoLabel = _getEstadoLabel(widget.estado);
 
+    if (_isValorada) {
+      return AnimatedBuilder(
+        animation: _valoradaController,
+        builder: (context, child) {
+          final color = Color.lerp(
+                _valoradaStartColor,
+                _valoradaEndColor,
+                _valoradaController.value,
+              ) ??
+              _valoradaEndColor;
+
+          final scale = _valoradaScale.value;
+
+          return Transform.scale(
+            scale: scale,
+            child: _buildCard(
+              estadoLabel: estadoLabel,
+              estadoColor: color,
+              fecha: widget.fecha,
+              idSolicitud: widget.idSolicitud,
+            ),
+          );
+        },
+      );
+    }
+
+    return _buildCard(
+      estadoLabel: estadoLabel,
+      estadoColor: _getEstadoColor(widget.estado),
+      fecha: widget.fecha,
+      idSolicitud: widget.idSolicitud,
+    );
+  }
+
+  Widget _buildCard({
+    required String estadoLabel,
+    required Color estadoColor,
+    required DateTime fecha,
+    required int? idSolicitud,
+  }) {
     return Card(
       color: ResQColors.onPrimary,
       elevation: 4,
@@ -147,7 +248,7 @@ class EmergenciaActivaCard extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -180,7 +281,8 @@ class EmergenciaActivaCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: estadoColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
