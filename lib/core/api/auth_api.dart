@@ -34,7 +34,21 @@ class AuthApi {
       if (res.statusCode == 200) {
         return jsonDecode(res.body) as Map<String, dynamic>;
       } else {
-        throw Exception('Error: ${res.statusCode}');
+        String message = 'Error: ${res.statusCode}';
+        try {
+          final body = jsonDecode(res.body);
+          if (body is Map<String, dynamic>) {
+            message = body['mensaje'] as String? ??
+                body['message'] as String? ??
+                body['detail']?.toString() ??
+                message;
+          } else {
+            message = body.toString();
+          }
+        } catch (_) {
+          message = res.body.isNotEmpty ? res.body : message;
+        }
+        throw Exception(message);
       }
     } catch (e) {
       print('[LOGIN] Error: $e');

@@ -20,6 +20,10 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  String _cleanErrorMessage(String? message) {
+    if (message == null) return '';
+    return message.replaceFirst(RegExp(r'^Exception:\s*'), '').trim();
+  }
   final _form = GlobalKey<FormState>();
   final _identifierController = TextEditingController();
   final _pass = TextEditingController();
@@ -56,7 +60,7 @@ class _LoginPageState extends State<LoginPage> {
 
       setState(() {
         _loading = false;
-        _error = r.ok ? null : r.message;
+        _error = r.ok ? null : _cleanErrorMessage(r.message);
       });
 
       if (r.ok) {
@@ -116,7 +120,7 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = ErrorHandler.getErrorMessage(e);
+        _error = _cleanErrorMessage(ErrorHandler.getErrorMessage(e));
       });
     }
   }

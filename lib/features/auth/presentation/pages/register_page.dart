@@ -116,14 +116,14 @@ class _RegisterPageState extends State<RegisterPage> {
                   const SizedBox(height: 24),
 
                   const Text(
-                    'Nombre',
+                    'Nombre de usuario',
                     style: TextStyle(color: Colors.grey),
                   ),
                   UnderlinedTextField(
                     controller: _nombre,
-                    hint: 'Tu nombre',
+                    hint: 'Elige tu nombre de usuario',
                     validator: (v) =>
-                        Validators.required(v, label: 'tu nombre'),
+                        Validators.required(v, label: 'tu nombre de usuario'),
                   ),
                   const SizedBox(height: 18),
 
