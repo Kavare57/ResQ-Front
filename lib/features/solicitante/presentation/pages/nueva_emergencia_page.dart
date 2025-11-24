@@ -285,13 +285,19 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       print('[NUEVA_EMERGENCIA] server_url: ${sala['server_url']}');
       print('[NUEVA_EMERGENCIA] Credenciales completas: $sala');
 
-      // Guardar id_solicitud cuando se recibe la respuesta
+      // Guardar id_solicitud y crear recuadro de emergencia activa
       final idSolicitud = sala['id_solicitud'];
       if (idSolicitud != null) {
         final storage = StorageService();
-        final idFinal = idSolicitud is int ? idSolicitud : int.parse(idSolicitud.toString());
-        await storage.saveIdSolicitud(idFinal);
-        print('[NUEVA_EMERGENCIA] ID de solicitud guardado: $idFinal');
+        final idFinal =
+            idSolicitud is int ? idSolicitud : int.parse(idSolicitud.toString());
+        await storage.saveEmergenciaActiva(
+          idSolicitud: idFinal,
+          estado: 'creada',
+          fecha: DateTime.now(),
+        );
+        print(
+            '[NUEVA_EMERGENCIA] ID de solicitud guardado y recuadro creado: $idFinal');
       }
 
       // Conectar al WebSocket del solicitante (NO se desconecta al colgar)
