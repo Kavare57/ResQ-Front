@@ -29,6 +29,8 @@ class AuthController {
       print('[LOGIN] Respuesta completa: $res');
       final token = res['access_token'] as String?;
 
+      bool personaGuardada = false;
+
       if (token != null) {
         // Guardamos el token SIEMPRE para que funcione la sesión actual
         await _storage.saveToken(token);
@@ -59,19 +61,57 @@ class AuthController {
           print('[LOGIN] 1/4 - Tipo usuario guardado: $tipoUsuario');
         }
 
-        // Obtener y guardar id_persona desde GET /usuarios/me
-        print('[LOGIN] 2/4 - Obteniendo id_persona desde /usuarios/me...');
+        // Intentar guardar id_persona directamente del payload del login (si viene)
         try {
-          final idPersona = await _api.obtenerIdPersonaActual(token);
-          if (idPersona != null) {
-            await _storage.savePersonaId(idPersona);
-            print('[LOGIN] 2/4 - ID persona guardado: $idPersona');
-          } else {
+          int? personaIdPayload;
+
+          if (res['id_persona'] is int) {
+            personaIdPayload = res['id_persona'] as int;
+          } else if (res['persona_id'] is int) {
+            personaIdPayload = res['persona_id'] as int;
+          } else if (res['usuario'] is Map<String, dynamic>) {
+            final usuario = res['usuario'] as Map<String, dynamic>;
+            if (usuario['id_persona'] is int) {
+              personaIdPayload = usuario['id_persona'] as int;
+            } else if (usuario['persona_id'] is int) {
+              personaIdPayload = usuario['persona_id'] as int;
+            } else if (usuario['persona'] is Map<String, dynamic>) {
+              final persona = usuario['persona'] as Map<String, dynamic>;
+              if (persona['id'] is int) {
+                personaIdPayload = persona['id'] as int;
+              }
+            }
+          }
+
+          if (personaIdPayload != null && personaIdPayload > 0) {
+            await _storage.savePersonaId(personaIdPayload);
+            personaGuardada = true;
             print(
-                '[LOGIN] 2/4 - Usuario sin persona asignada (perfil incompleto o rol diferente)');
+                '[LOGIN] 1/4 - ID persona guardado desde payload: $personaIdPayload');
           }
         } catch (e) {
-          print('[LOGIN] 2/4 - Error obteniendo id_persona: $e');
+          print('[LOGIN] 1/4 - Error leyendo id_persona del payload: $e');
+        }
+
+        // Obtener y guardar id_persona desde GET /usuarios/me
+        if (!personaGuardada) {
+          print('[LOGIN] 2/4 - Obteniendo id_persona desde /usuarios/me...');
+          try {
+            final idPersona = await _api.obtenerIdPersonaActual(token);
+            if (idPersona != null) {
+              await _storage.savePersonaId(idPersona);
+              print('[LOGIN] 2/4 - ID persona guardado: $idPersona');
+              personaGuardada = true;
+            } else {
+              print(
+                  '[LOGIN] 2/4 - Usuario sin persona asignada (perfil incompleto o rol diferente)');
+            }
+          } catch (e) {
+            print('[LOGIN] 2/4 - Error obteniendo id_persona: $e');
+          }
+        } else {
+          print(
+              '[LOGIN] 2/4 - ID persona ya guardado desde payload, se omite /usuarios/me');
         }
 
         // Intenta sincronizar el solicitante después del login
