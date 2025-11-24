@@ -21,23 +21,30 @@ class _EmergenciaActivaCardState extends State<EmergenciaActivaCard>
     with SingleTickerProviderStateMixin {
   static const Color _valoradaStartColor = Colors.amber;
   static const Color _valoradaEndColor = Colors.blue;
+  static const Color _asignadaStartColor = Colors.blue;
+  static const Color _asignadaEndColor = Colors.green;
 
-  late AnimationController _valoradaController;
-  late Animation<double> _valoradaScale;
+  late AnimationController _animController;
+  late Animation<double> _scaleAnimation;
+  late Animation<Color?> _colorAnimation;
 
   bool get _isValorada =>
       widget.estado.toUpperCase() == 'VALORADA' ||
       widget.estado.toUpperCase() == 'EMERGENCIA_VALORADA';
 
+  bool get _isAsignada =>
+      widget.estado.toUpperCase() == 'ASIGNADA' ||
+      widget.estado.toUpperCase() == 'AMBULANCIA_ASIGNADA';
+
   @override
   void initState() {
     super.initState();
-    _valoradaController = AnimationController(
+    _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
 
-    _valoradaScale = TweenSequence<double>([
+    _scaleAnimation = TweenSequence<double>([
       TweenSequenceItem(
         tween: Tween<double>(begin: 1.0, end: 1.08)
             .chain(CurveTween(curve: Curves.easeOut)),
@@ -48,11 +55,10 @@ class _EmergenciaActivaCardState extends State<EmergenciaActivaCard>
             .chain(CurveTween(curve: Curves.easeIn)),
         weight: 50,
       ),
-    ]).animate(_valoradaController);
+    ]).animate(_animController);
 
-    if (_isValorada) {
-      _valoradaController.forward();
-    }
+    _setupColorAnimation();
+    _maybeRunAnimation(initial: true);
   }
 
   @override
@@ -60,19 +66,52 @@ class _EmergenciaActivaCardState extends State<EmergenciaActivaCard>
     super.didUpdateWidget(oldWidget);
     final wasValorada = oldWidget.estado.toUpperCase() == 'VALORADA' ||
         oldWidget.estado.toUpperCase() == 'EMERGENCIA_VALORADA';
+    final wasAsignada = oldWidget.estado.toUpperCase() == 'ASIGNADA' ||
+        oldWidget.estado.toUpperCase() == 'AMBULANCIA_ASIGNADA';
 
-    if (_isValorada && !wasValorada) {
-      _valoradaController.forward(from: 0);
-    } else if (!_isValorada && wasValorada) {
-      _valoradaController.stop();
-      _valoradaController.reset();
+    _setupColorAnimation();
+
+    if ((_isValorada && !wasValorada) ||
+        (_isAsignada && !wasAsignada && !_isValorada)) {
+      _animController.forward(from: 0);
+    } else if (!_isValorada && !_isAsignada && (wasValorada || wasAsignada)) {
+      _animController.stop();
+      _animController.reset();
     }
   }
 
   @override
   void dispose() {
-    _valoradaController.dispose();
+    _animController.dispose();
     super.dispose();
+  }
+
+  void _setupColorAnimation() {
+    if (_isValorada) {
+      _colorAnimation = ColorTween(
+        begin: _valoradaStartColor,
+        end: _valoradaEndColor,
+      ).animate(_animController);
+    } else if (_isAsignada) {
+      _colorAnimation = ColorTween(
+        begin: _asignadaStartColor,
+        end: _asignadaEndColor,
+      ).animate(_animController);
+    } else {
+      _colorAnimation = AlwaysStoppedAnimation<Color?>(
+        _getEstadoColor(widget.estado),
+      );
+    }
+  }
+
+  void _maybeRunAnimation({bool initial = false}) {
+    if (_isValorada || _isAsignada) {
+      if (initial) {
+        _animController.forward();
+      } else {
+        _animController.forward(from: 0);
+      }
+    }
   }
 
   String _getEstadoLabel(String estado) {
@@ -196,18 +235,14 @@ class _EmergenciaActivaCardState extends State<EmergenciaActivaCard>
   Widget build(BuildContext context) {
     final estadoLabel = _getEstadoLabel(widget.estado);
 
-    if (_isValorada) {
-      return AnimatedBuilder(
-        animation: _valoradaController,
-        builder: (context, child) {
-          final color = Color.lerp(
-                _valoradaStartColor,
-                _valoradaEndColor,
-                _valoradaController.value,
-              ) ??
-              _valoradaEndColor;
+    final shouldAnimate = _isValorada || _isAsignada;
 
-          final scale = _valoradaScale.value;
+    if (shouldAnimate) {
+      return AnimatedBuilder(
+        animation: _animController,
+        builder: (context, child) {
+          final color = _colorAnimation.value ?? _getEstadoColor(widget.estado);
+          final scale = _scaleAnimation.value;
 
           return Transform.scale(
             scale: scale,
@@ -220,14 +255,14 @@ class _EmergenciaActivaCardState extends State<EmergenciaActivaCard>
           );
         },
       );
+    } else {
+      return _buildCard(
+        estadoLabel: estadoLabel,
+        estadoColor: _getEstadoColor(widget.estado),
+        fecha: widget.fecha,
+        idSolicitud: widget.idSolicitud,
+      );
     }
-
-    return _buildCard(
-      estadoLabel: estadoLabel,
-      estadoColor: _getEstadoColor(widget.estado),
-      fecha: widget.fecha,
-      idSolicitud: widget.idSolicitud,
-    );
   }
 
   Widget _buildCard({
@@ -352,6 +387,38 @@ class _EmergenciaActivaCardState extends State<EmergenciaActivaCard>
                     ),
                   ),
                 ],
+              ),
+            ],
+            if (_isAsignada) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _asignadaEndColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _asignadaEndColor.withOpacity(0.4),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.touch_app,
+                      color: _asignadaEndColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Presione para iniciar el seguimiento',
+                      style: TextStyle(
+                        color: _asignadaEndColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ],
