@@ -379,10 +379,39 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
               if (!_cargandoEmergenciaActiva && _emergenciaActiva != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: EmergenciaActivaCard(
-                    estado: _emergenciaActiva!['estado'] as String,
-                    fecha: _emergenciaActiva!['fecha'] as DateTime,
-                    idSolicitud: _emergenciaActiva!['id'] as int?,
+                  child: Column(
+                    children: [
+                      EmergenciaActivaCard(
+                        estado: _emergenciaActiva!['estado'] as String,
+                        fecha: _emergenciaActiva!['fecha'] as DateTime,
+                        idSolicitud: _emergenciaActiva!['id'] as int?,
+                      ),
+                      const SizedBox(height: 12),
+                      // Botón temporal de pruebas para limpiar flag de emergencia activa
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                        ),
+                        onPressed: () async {
+                          await _storage.setTieneEmergenciaActiva(false);
+                          await _storage.clearEmergenciaActiva();
+                          if (mounted) {
+                            setState(() {
+                              _emergenciaActiva = null;
+                            });
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    'Flag de emergencia activa limpiado (solo pruebas)'),
+                              ),
+                            );
+                          }
+                        },
+                        child: const Text('TEST: Limpiar emergencia activa'),
+                      ),
+                    ],
                   ),
                 ),
 

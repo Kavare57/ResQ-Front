@@ -13,6 +13,7 @@ class StorageService {
       'emergencia_activa_id_emergencia';
   static const _emergenciaActivaEstadoKey = 'emergencia_activa_estado';
   static const _emergenciaActivaFechaKey = 'emergencia_activa_fecha';
+  static const _emergenciaActivaFlagKey = 'emergencia_activa_flag';
 
   Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -88,6 +89,7 @@ class StorageService {
   Future<void> saveIdSolicitud(int idSolicitud) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_emergenciaActivaIdSolicitudKey, idSolicitud);
+    await prefs.setBool(_emergenciaActivaFlagKey, true);
   }
 
   Future<void> saveEmergenciaActiva({
@@ -105,6 +107,7 @@ class StorageService {
     }
     await prefs.setString(_emergenciaActivaEstadoKey, estado);
     await prefs.setString(_emergenciaActivaFechaKey, fecha.toIso8601String());
+    await prefs.setBool(_emergenciaActivaFlagKey, true);
   }
 
   Future<void> updateIdEmergenciaActiva(int idEmergencia) async {
@@ -112,6 +115,7 @@ class StorageService {
     await prefs.setInt(_emergenciaActivaIdEmergenciaKey, idEmergencia);
     // Poner id_solicitud en 0 cuando se recibe el id_emergencia
     await prefs.setInt(_emergenciaActivaIdSolicitudKey, 0);
+    await prefs.setBool(_emergenciaActivaFlagKey, true);
   }
 
   Future<void> clearIdSolicitud() async {
@@ -160,5 +164,16 @@ class StorageService {
     await prefs.remove(_emergenciaActivaIdEmergenciaKey);
     await prefs.remove(_emergenciaActivaEstadoKey);
     await prefs.remove(_emergenciaActivaFechaKey);
+    await prefs.setBool(_emergenciaActivaFlagKey, false);
+  }
+
+  Future<void> setTieneEmergenciaActiva(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_emergenciaActivaFlagKey, value);
+  }
+
+  Future<bool> getTieneEmergenciaActiva() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_emergenciaActivaFlagKey) ?? false;
   }
 }

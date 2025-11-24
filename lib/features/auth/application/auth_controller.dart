@@ -187,7 +187,23 @@ class AuthController {
     }
 
     print('[AUTH] Token válido encontrado');
-    return true;
+    try {
+      final verifyResponse = await _api.verify(token);
+      final isValid = verifyResponse['valid'] as bool? ?? false;
+
+      if (!isValid) {
+        print('[AUTH] Token inválido según /auth/verify - limpiando sesión');
+        await _storage.clearToken();
+        return false;
+      }
+
+      print('[AUTH] Token verificado exitosamente con el backend');
+      return true;
+    } catch (e) {
+      print('[AUTH] Error verificando token con backend: $e');
+      await _storage.clearToken();
+      return false;
+    }
   }
 
   /// Cierra sesión limpiando el token.
