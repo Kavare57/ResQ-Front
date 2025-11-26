@@ -44,7 +44,7 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
     // Inicializar con ubicación por defecto
     _lat = defaultLat;
     _lng = defaultLng;
-    
+
     // Obtener ubicación del LocationService (precisa si está lista, última conocida si no)
     _loadLocationFromService();
   }
@@ -52,28 +52,25 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
   Future<void> _loadLocationFromService() async {
     final locationService = LocationService();
     final position = locationService.getCurrentLocation();
-    
+
     if (position != null) {
       final userPosition = LatLng(position.latitude, position.longitude);
       _updateSelectedPosition(userPosition);
-      
+
       // Centrar el mapa en la ubicación obtenida
       if (mounted) {
         // Pequeño delay para asegurar que el mapa esté listo
         await Future.delayed(const Duration(milliseconds: 300));
         _mapController.move(userPosition, 16);
       }
-      
-      
+
       // Si no hay ubicación precisa aún, continuar obteniéndola en segundo plano
       if (!locationService.hasPreciseLocation()) {
-        locationService.initialize().catchError((e) {
-        });
+        locationService.initialize().catchError((e) {});
       }
     } else {
       // Intentar inicializar el servicio si no se ha hecho
-      locationService.initialize().catchError((e) {
-      });
+      locationService.initialize().catchError((e) {});
     }
   }
 
@@ -94,38 +91,42 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
 
     try {
       final locationService = LocationService();
-      
+
       // Actualizar la ubicación usando el servicio
       final position = await locationService.updateLocation();
-      
+
       if (position == null) {
         if (!mounted) return;
         setState(() {
-          _error = 'No se pudo obtener la ubicación. Por favor, verifica que el GPS esté activado y los permisos estén otorgados.';
+          _error =
+              'No se pudo obtener la ubicación. Por favor, verifica que el GPS esté activado y los permisos estén otorgados.';
         });
         return;
       }
 
       final userPosition = LatLng(position.latitude, position.longitude);
       _updateSelectedPosition(userPosition);
-      
+
       // Animar la cámara al punto seleccionado con zoom adecuado
       if (mounted) {
         await Future.delayed(const Duration(milliseconds: 100));
         _mapController.move(userPosition, 16);
       }
-      
     } catch (e, stackTrace) {
       ErrorHandler.logError('[UBICACION]', e, stackTrace);
       if (!mounted) return;
       setState(() {
         String errorMsg = ErrorHandler.getErrorMessage(e);
         if (errorMsg.contains('timeout') || errorMsg.contains('Timeout')) {
-          _error = 'Tiempo de espera agotado. Por favor, verifica que el GPS esté activado e intenta nuevamente.';
-        } else if (errorMsg.contains('DeadSystem') || errorMsg.contains('DeadSystemException')) {
-          _error = 'Error del sistema de ubicación. Por favor, reinicia la aplicación o selecciona tu ubicación manualmente en el mapa.';
+          _error =
+              'Tiempo de espera agotado. Por favor, verifica que el GPS esté activado e intenta nuevamente.';
+        } else if (errorMsg.contains('DeadSystem') ||
+            errorMsg.contains('DeadSystemException')) {
+          _error =
+              'Error del sistema de ubicación. Por favor, reinicia la aplicación o selecciona tu ubicación manualmente en el mapa.';
         } else {
-          _error = 'Error al obtener ubicación: $errorMsg. Puedes seleccionar tu ubicación manualmente en el mapa.';
+          _error =
+              'Error al obtener ubicación: $errorMsg. Puedes seleccionar tu ubicación manualmente en el mapa.';
         }
       });
     } finally {
@@ -179,7 +180,6 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
         },
       ).timeout(const Duration(seconds: 12));
 
-
       if (response.statusCode != 200) {
         throw Exception(
             'Nominatim error ${response.statusCode}: ${response.body}');
@@ -199,9 +199,6 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       final firstResult = results.first as Map<String, dynamic>;
       final lat = double.parse(firstResult['lat'].toString());
       final lng = double.parse(firstResult['lon'].toString());
-      final displayName =
-          firstResult['display_name'] as String? ?? 'Ubicación encontrada';
-
 
       final position = LatLng(lat, lng);
       _updateSelectedPosition(position);
@@ -235,11 +232,12 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       // Obtener la ubicación más precisa disponible del LocationService
       final locationService = LocationService();
       final position = locationService.getCurrentLocation();
-      
+
       if (position == null) {
         if (!mounted) return;
         setState(() {
-          _error = 'No se pudo obtener la ubicación. Por favor, espera un momento o selecciona tu ubicación manualmente en el mapa.';
+          _error =
+              'No se pudo obtener la ubicación. Por favor, espera un momento o selecciona tu ubicación manualmente en el mapa.';
         });
         return;
       }
@@ -247,10 +245,9 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       // Usar la ubicación del servicio (precisa si está lista, última conocida si no)
       final lat = position.latitude;
       final lng = position.longitude;
-      
+
       // Actualizar también las variables locales para mantener consistencia
       _updateSelectedPosition(LatLng(lat, lng));
-      
 
       // Solicitar permisos para la llamada
       final hasPermissions = await PermissionsService.requestCallPermissions();
@@ -264,13 +261,13 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
         lng: lng,
       );
 
-
       // Guardar id_solicitud y crear recuadro de emergencia activa
       final idSolicitud = sala['id_solicitud'];
       if (idSolicitud != null) {
         final storage = StorageService();
-        final idFinal =
-            idSolicitud is int ? idSolicitud : int.parse(idSolicitud.toString());
+        final idFinal = idSolicitud is int
+            ? idSolicitud
+            : int.parse(idSolicitud.toString());
         await storage.saveEmergenciaActiva(
           idSolicitud: idFinal,
           estado: 'creada',
@@ -278,7 +275,6 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
           latitud: lat,
           longitud: lng,
         );
-            '[NUEVA_EMERGENCIA] ID de solicitud guardado y recuadro creado: $idFinal');
       }
 
       // El websocket se conectará automáticamente en el home cuando detecte la emergencia activa
@@ -337,286 +333,284 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                // ---- MAPA ----
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: ResQColors.primary50,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Ingresa tu ubicación manualmente',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
+              // ---- MAPA ----
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: ResQColors.primary50,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Ingresa tu ubicación manualmente',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _direccionCtrl,
-                        textInputAction: TextInputAction.search,
-                        onSubmitted: (_) => _buscarDireccion(),
-                        decoration: InputDecoration(
-                          hintText: 'Busca por dirección, barrio o referencia',
-                          prefixIcon: const Icon(Icons.place_outlined),
-                          suffixIcon: _locating
-                              ? const Padding(
-                                  padding: EdgeInsets.all(12),
-                                  child: SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                  ),
-                                )
-                              : IconButton(
-                                  onPressed: _buscarDireccion,
-                                  icon: const Icon(Icons.search),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _direccionCtrl,
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (_) => _buscarDireccion(),
+                      decoration: InputDecoration(
+                        hintText: 'Busca por dirección, barrio o referencia',
+                        prefixIcon: const Icon(Icons.place_outlined),
+                        suffixIcon: _locating
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
                                 ),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding:
-                              const EdgeInsets.symmetric(horizontal: 12),
+                              )
+                            : IconButton(
+                                onPressed: _buscarDireccion,
+                                icon: const Icon(Icons.search),
+                              ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
                         ),
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 12),
                       ),
-                      const SizedBox(height: 12),
-                      // ========== MAPA INTERACTIVO ==========
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          height: 280,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey[300]!),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Stack(
-                            children: [
-                              FlutterMap(
-                                mapController: _mapController,
-                                options: MapOptions(
-                                  initialCenter: LatLng(
-                                    _lat ?? defaultLat,
-                                    _lng ?? defaultLng,
-                                  ),
-                                  initialZoom: 13.0,
-                                  minZoom: 5.0,
-                                  maxZoom: 18.0,
-                                  onTap: (tapPosition, latLng) {
-                                    _updateSelectedPosition(latLng);
-                                  },
+                    ),
+                    const SizedBox(height: 12),
+                    // ========== MAPA INTERACTIVO ==========
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        height: 280,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Stack(
+                          children: [
+                            FlutterMap(
+                              mapController: _mapController,
+                              options: MapOptions(
+                                initialCenter: LatLng(
+                                  _lat ?? defaultLat,
+                                  _lng ?? defaultLng,
                                 ),
-                                children: [
-                                  TileLayer(
-                                    urlTemplate:
-                                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                    userAgentPackageName:
-                                        'com.example.resq_app',
-                                  ),
-                                  MarkerLayer(
-                                    markers: [
-                                      if (_lat != null && _lng != null)
-                                        Marker(
-                                          point: LatLng(_lat!, _lng!),
-                                          width: 40,
-                                          height: 40,
-                                          child: Column(
-                                            children: [
-                                              Container(
-                                                width: 40,
-                                                height: 40,
-                                                decoration: BoxDecoration(
-                                                  color: ResQColors.primary500,
-                                                  shape: BoxShape.circle,
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: ResQColors
-                                                          .primary500
-                                                          .withOpacity(0.5),
-                                                      blurRadius: 8,
-                                                      spreadRadius: 2,
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: const Icon(
-                                                  Icons.location_on,
-                                                  color: Colors.white,
-                                                  size: 24,
-                                                ),
+                                initialZoom: 13.0,
+                                minZoom: 5.0,
+                                maxZoom: 18.0,
+                                onTap: (tapPosition, latLng) {
+                                  _updateSelectedPosition(latLng);
+                                },
+                              ),
+                              children: [
+                                TileLayer(
+                                  urlTemplate:
+                                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                  userAgentPackageName: 'com.example.resq_app',
+                                ),
+                                MarkerLayer(
+                                  markers: [
+                                    if (_lat != null && _lng != null)
+                                      Marker(
+                                        point: LatLng(_lat!, _lng!),
+                                        width: 40,
+                                        height: 40,
+                                        child: Column(
+                                          children: [
+                                            Container(
+                                              width: 40,
+                                              height: 40,
+                                              decoration: BoxDecoration(
+                                                color: ResQColors.primary500,
+                                                shape: BoxShape.circle,
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: ResQColors.primary500
+                                                        .withOpacity(0.5),
+                                                    blurRadius: 8,
+                                                    spreadRadius: 2,
+                                                  ),
+                                                ],
                                               ),
-                                            ],
-                                          ),
+                                              child: const Icon(
+                                                Icons.location_on,
+                                                color: Colors.white,
+                                                size: 24,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              // Pin centrado en pantalla (visual feedback)
-                              Positioned(
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                child: Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 40),
-                                    child: Icon(
-                                      Icons.add_circle_outline,
-                                      color: ResQColors.primary500
-                                          .withOpacity(0.3),
-                                      size: 48,
-                                    ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            // Pin centrado en pantalla (visual feedback)
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 40),
+                                  child: Icon(
+                                    Icons.add_circle_outline,
+                                    color:
+                                        ResQColors.primary500.withOpacity(0.3),
+                                    size: 48,
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Toca el mapa para seleccionar ubicación',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Toca el mapa para seleccionar ubicación',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
                             ),
-                          ),
-                          if (_lat != null && _lng != null)
-                            Text(
-                              '✓ ${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: ResQColors.primary500,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                        ],
-                      ),
-                      // ===================================
-                      const SizedBox(height: 12),
-                      // Ubicación seleccionada - info adicional
-                      if (_lat != null && _lng != null)
-                        Container(
-                          decoration: BoxDecoration(
-                            color: ResQColors.primary50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: ResQColors.primary200,
-                              width: 1,
-                            ),
-                          ),
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.check_circle,
-                                color: ResQColors.primary500,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Ubicación seleccionada correctamente',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: ResQColors.primary500,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: _locating ? null : _usarMiUbicacion,
-                    icon: _locating
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.my_location),
-                    label: const Text('Usar mi ubicación actual'),
-                  ),
-                ),
-                if (_lat != null && _lng != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Text(
-                      'Ubicación seleccionada: (${_lat!.toStringAsFixed(5)}, ${_lng!.toStringAsFixed(5)})',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.black54,
-                      ),
+                        if (_lat != null && _lng != null)
+                          Text(
+                            '✓ ${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: ResQColors.primary500,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
-
-                const SizedBox(height: 24),
-
-                // Botón de llamar posicionado para cumplir con ley FITS
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: ResQColors.primary500,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      elevation: 4,
-                    ),
-                    onPressed: _sending ? null : _enviarYLLamar,
-                    child: _sending
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.phone, size: 24),
-                              SizedBox(width: 8),
-                              Text(
-                                'Llamar al operador',
+                    // ===================================
+                    const SizedBox(height: 12),
+                    // Ubicación seleccionada - info adicional
+                    if (_lat != null && _lng != null)
+                      Container(
+                        decoration: BoxDecoration(
+                          color: ResQColors.primary50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: ResQColors.primary200,
+                            width: 1,
+                          ),
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle,
+                              color: ResQColors.primary500,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Ubicación seleccionada correctamente',
                                 style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: ResQColors.primary500,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _locating ? null : _usarMiUbicacion,
+                  icon: _locating
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.my_location),
+                  label: const Text('Usar mi ubicación actual'),
+                ),
+              ),
+              if (_lat != null && _lng != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Text(
+                    'Ubicación seleccionada: (${_lat!.toStringAsFixed(5)}, ${_lng!.toStringAsFixed(5)})',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.black54,
+                    ),
                   ),
                 ),
 
-                const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: ErrorDisplayWidget(
-                      errorMessage: _error!,
-                      showRetryButton: false,
-                      onDismiss: () {
-                        setState(() {
-                          _error = null;
-                        });
-                      },
+              // Botón de llamar posicionado para cumplir con ley FITS
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: ResQColors.primary500,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
                     ),
+                    elevation: 4,
                   ),
+                  onPressed: _sending ? null : _enviarYLLamar,
+                  child: _sending
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.phone, size: 24),
+                            SizedBox(width: 8),
+                            Text(
+                              'Llamar al operador',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: ErrorDisplayWidget(
+                    errorMessage: _error!,
+                    showRetryButton: false,
+                    onDismiss: () {
+                      setState(() {
+                        _error = null;
+                      });
+                    },
+                  ),
+                ),
             ],
           ),
         ),

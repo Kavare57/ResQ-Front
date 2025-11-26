@@ -26,7 +26,6 @@ class AuthController {
   }) async {
     try {
       final res = await _api.login(identifier, password);
-      print('[LOGIN] Respuesta completa: $res');
       final token = res['access_token'] as String?;
 
       bool personaGuardada = false;
@@ -34,31 +33,25 @@ class AuthController {
       if (token != null) {
         // Guardamos el token SIEMPRE para que funcione la sesión actual
         await _storage.saveToken(token);
-        print(
-            '[LOGIN] 1/4 - Token guardado para la sesión actual (remember=$remember)');
 
         // Guardar el flag "remember" para saber si limpiar el token al cerrar
         await _storage.saveRemember(remember);
-        print('[LOGIN] 1/4 - Flag "recuerdame" guardado: $remember');
 
         // Guardar el nombre de usuario
         final nombreDeUsuario = res['nombreDeUsuario'] as String?;
         if (nombreDeUsuario != null) {
           await _storage.saveNombreUsuario(nombreDeUsuario);
-          print('[LOGIN] 1/4 - Nombre usuario guardado: $nombreDeUsuario');
         }
 
         // Extraer y guardar datos del JWT
         final idUsuario = JwtHelper.getIdUsuario(token);
         if (idUsuario != null) {
           await _storage.saveUserId(idUsuario);
-          print('[LOGIN] 1/4 - ID usuario guardado: $idUsuario');
         }
 
         final tipoUsuario = JwtHelper.getTipoUsuario(token);
         if (tipoUsuario != null) {
           await _storage.saveTipoUsuario(tipoUsuario);
-          print('[LOGIN] 1/4 - Tipo usuario guardado: $tipoUsuario');
         }
 
         // Intentar guardar id_persona directamente del payload del login (si viene)
@@ -86,51 +79,34 @@ class AuthController {
           if (personaIdPayload != null && personaIdPayload > 0) {
             await _storage.savePersonaId(personaIdPayload);
             personaGuardada = true;
-            print(
-                '[LOGIN] 1/4 - ID persona guardado desde payload: $personaIdPayload');
           }
         } catch (e) {
-          print('[LOGIN] 1/4 - Error leyendo id_persona del payload: $e');
         }
 
         // Obtener y guardar id_persona desde GET /usuarios/me
         if (!personaGuardada) {
-          if (idUsuario == null) {
-            print(
-                '[LOGIN] 2/4 - No se puede obtener id_persona sin id_usuario en el token.');
-          } else {
-            print('[LOGIN] 2/4 - Obteniendo id_persona desde /usuarios/me...');
+          if (idUsuario != null) {
             try {
               final idPersona = await _api.obtenerIdPersonaActual(
                   token: token, idUsuario: idUsuario);
               if (idPersona != null) {
                 await _storage.savePersonaId(idPersona);
-                print('[LOGIN] 2/4 - ID persona guardado: $idPersona');
                 personaGuardada = true;
-              } else {
-                print(
-                    '[LOGIN] 2/4 - Usuario sin persona asignada (perfil incompleto o rol diferente)');
               }
             } catch (e) {
-              print('[LOGIN] 2/4 - Error obteniendo id_persona: $e');
+              // ignorar, se manejará más adelante si falta id_persona
             }
           }
-        } else {
-          print(
-              '[LOGIN] 2/4 - ID persona ya guardado desde payload, se omite /usuarios/me');
         }
 
         // Intenta sincronizar el solicitante después del login
-        print('[LOGIN] 3/4 - Sincronizando solicitante...');
         try {
           await _solicitantesApi.sincronizarSolicitante();
-          print('[LOGIN] 3/4 - Solicitante sincronizado');
         } catch (e) {
-          print('[LOGIN] 3/4 - Error sincronizando solicitante: $e');
+          // ignorar errores de sincronización en login
         }
       }
 
-      print('[LOGIN] 4/4 - Completado exitosamente');
       return (ok: true, message: 'Inicio de sesión exitoso');
     } catch (e) {
       return (ok: false, message: e.toString());
@@ -158,11 +134,8 @@ class AuthController {
       // PASO 1: Crear usuario
       final usuarioCreado = await _api.register(nombre, email, password);
       final idUsuarioNuevo = usuarioCreado['id'] as int?;
-      print(
-          '[REGISTER] 1/9 - Usuario creado: ${usuarioCreado['nombreDeUsuario']} (ID: $idUsuarioNuevo)');
 
       // PASO 2: Login automático después de registrar
-      print('[REGISTER] 2/9 - Iniciando login automático...');
       try {
         final resLogin = await _api.login(email, password);
         final token = resLogin['access_token'] as String?;
@@ -170,29 +143,22 @@ class AuthController {
           // Guardamos el token TEMPORALMENTE para que la sesión sea válida
           // mientras el usuario completa su perfil
           await _storage.saveToken(token);
-          print('[REGISTER] 3/9 - Token guardado temporalmente');
 
           // Extraer y guardar ID usuario
           final idUsuario = JwtHelper.getIdUsuario(token);
           if (idUsuario != null) {
             await _storage.saveUserId(idUsuario);
-            print('[REGISTER] 4/9 - ID usuario guardado: $idUsuario');
           }
 
           // Para nuevo registro, siempre es SOLICITANTE
           await _storage.saveTipoUsuario('SOLICITANTE');
-          print('[REGISTER] 5/9 - Tipo usuario establecido: SOLICITANTE');
 
           // NO intentamos obtener id_persona aquí porque el usuario
           // aún no tiene persona creada. Eso se hará después de completar perfil.
-          print(
-              '[REGISTER] 6/9 - Usuario sin persona aún (será completada en perfil)');
         } else {
-          print('[REGISTER] ERROR: No se obtuvo token en login automático');
           throw Exception('Login automático falló: sin token');
         }
       } catch (e) {
-        print('[REGISTER] ERROR en login automático: $e');
         // Si el login automático falla, el registro ya se completó
         // El usuario deberá intentar login manual
         throw Exception(
@@ -221,32 +187,26 @@ class AuthController {
   Future<bool> isLoggedIn() async {
     final token = await _storage.getToken();
     if (token == null) {
-      print('[AUTH] No hay token almacenado');
       return false;
     }
 
     // Verificar si el token está expirado
     if (JwtHelper.isTokenExpired(token)) {
-      print('[AUTH] Token expirado - limpiando sesión');
       await _storage.clearToken();
       return false;
     }
 
-    print('[AUTH] Token válido encontrado');
     try {
       final verifyResponse = await _api.verify(token);
       final isValid = verifyResponse['valid'] as bool? ?? false;
 
       if (!isValid) {
-        print('[AUTH] Token inválido según /auth/verify - limpiando sesión');
         await _storage.clearToken();
         return false;
       }
 
-      print('[AUTH] Token verificado exitosamente con el backend');
       return true;
     } catch (e) {
-      print('[AUTH] Error verificando token con backend: $e');
       await _storage.clearToken();
       return false;
     }

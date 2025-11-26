@@ -118,7 +118,6 @@ class _PerfilSolicitantePageState extends State<PerfilSolicitantePage> {
 
     try {
       final api = SolicitantesApi();
-      print('[PERFIL] Guardando perfil del solicitante...');
       await api.guardarPerfil(
         nombre: _nombre1Ctrl.text.trim(),
         nombre2:
@@ -133,7 +132,6 @@ class _PerfilSolicitantePageState extends State<PerfilSolicitantePage> {
       );
 
       if (!mounted) return;
-      print('[PERFIL] Perfil guardado exitosamente');
 
       if (widget.forzarCompletar) {
         // Después del registro: completamos perfil y luego volvemos a login
@@ -150,14 +148,10 @@ class _PerfilSolicitantePageState extends State<PerfilSolicitantePage> {
         // y para que el snackbar se muestre correctamente
         Future.delayed(const Duration(seconds: 4), () async {
           if (mounted) {
-            print(
-                '[PERFIL] Completación de perfil finalizada, limpiando sesión temporal...');
-
             // Limpiamos el token temporal porque ahora se debe hacer login formal
             // En el próximo login se obtendrá id_persona correctamente
             final storage = StorageService();
             await storage.clearToken();
-            print('[PERFIL] Token temporal limpiado, redirigiendo a LoginPage');
 
             Navigator.pushAndRemoveUntil(
               context,
@@ -178,7 +172,6 @@ class _PerfilSolicitantePageState extends State<PerfilSolicitantePage> {
         });
       }
     } catch (e) {
-      print('[PERFIL] Error al guardar perfil: $e');
       setState(() => _error = e.toString());
     } finally {
       setState(() => _loading = false);

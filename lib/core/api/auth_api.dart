@@ -104,8 +104,6 @@ class AuthApi {
       }),
     );
 
-    // print('VERIFY -> ${res.statusCode} ${res.body}');
-
     if (res.statusCode == 200) {
       return jsonDecode(res.body) as Map<String, dynamic>;
     } else {

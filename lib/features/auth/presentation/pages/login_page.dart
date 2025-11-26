@@ -75,7 +75,6 @@ class _LoginPageState extends State<LoginPage> {
         if (token != null) {
           // Extraer tipoUsuario del JWT
           final tipoUsuario = JwtHelper.getTipoUsuario(token);
-          print('[LOGIN] tipoUsuario: $tipoUsuario');
 
           // Ruteo dinámico basado en tipoUsuario
           Widget destination;
@@ -90,14 +89,11 @@ class _LoginPageState extends State<LoginPage> {
                 destination = const DashboardOperadorAmbulanciaPage();
                 break;
               default:
-                print('[LOGIN] tipoUsuario desconocido: $tipoUsuario');
                 destination = const HomeSolicitantePage();
             }
           } else {
             // Mientras el backend no incluya tipoUsuario, por defecto ir a solicitante
             // (porque solo solicitantes pueden registrarse públicamente por ahora)
-            print(
-                '[LOGIN] tipoUsuario no encontrado en JWT, asumiendo SOLICITANTE');
             destination = const HomeSolicitantePage();
           }
 

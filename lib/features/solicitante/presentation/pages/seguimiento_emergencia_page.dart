@@ -24,8 +24,7 @@ class SeguimientoEmergenciaPage extends StatefulWidget {
       _SeguimientoEmergenciaPageState();
 }
 
-class _SeguimientoEmergenciaPageState
-    extends State<SeguimientoEmergenciaPage> {
+class _SeguimientoEmergenciaPageState extends State<SeguimientoEmergenciaPage> {
   late MapController _mapController;
   final _storage = StorageService();
   final _distance = Distance();
@@ -33,11 +32,11 @@ class _SeguimientoEmergenciaPageState
   // Ubicación de la ambulancia
   double? _ambulanciaLat;
   double? _ambulanciaLng;
-  
+
   // Ubicación actual del usuario
   double? _usuarioLat;
   double? _usuarioLng;
-  
+
   // Estado
   bool _ambulanciaLlego = false;
   String? _tiempoEstimado;
@@ -57,16 +56,16 @@ class _SeguimientoEmergenciaPageState
   void initState() {
     super.initState();
     _mapController = MapController();
-    
+
     // Guardar callback original
     _originalCallback = widget.wsService.onMensajeRecibido;
-    
+
     // Configurar callback para recibir ubicaciones
     widget.wsService.onMensajeRecibido = _procesarMensajeWebSocket;
-    
+
     // Obtener ubicación actual del usuario
     _obtenerUbicacionActual();
-    
+
     // Centrar mapa en la ubicación de emergencia inicialmente
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _mapController.move(
@@ -80,13 +79,12 @@ class _SeguimientoEmergenciaPageState
     try {
       final locationService = LocationService();
       final position = locationService.getCurrentLocation();
-      
+
       if (position != null) {
         setState(() {
           _usuarioLat = position.latitude;
           _usuarioLng = position.longitude;
         });
-        print('[SEGUIMIENTO] Ubicación actual del usuario obtenida: ${_usuarioLat}, ${_usuarioLng}');
       } else {
         // Intentar actualizar la ubicación
         final updatedPosition = await locationService.updateLocation();
@@ -95,103 +93,104 @@ class _SeguimientoEmergenciaPageState
             _usuarioLat = updatedPosition.latitude;
             _usuarioLng = updatedPosition.longitude;
           });
-          print('[SEGUIMIENTO] Ubicación actual del usuario actualizada: ${_usuarioLat}, ${_usuarioLng}');
         }
       }
     } catch (e) {
-      print('[SEGUIMIENTO] Error obteniendo ubicación actual: $e');
+      // Error obteniendo ubicación actual; se mantiene la última conocida
     }
   }
 
   void _procesarMensajeWebSocket(Map<String, dynamic> data) {
-    print('[SEGUIMIENTO] Mensaje recibido: $data');
-    
     final tipo = data['tipo'] as String?;
-    
+
     if (tipo == 'ubicacion_ambulancia') {
       final latitud = data['latitud'] as double?;
       final longitud = data['longitud'] as double?;
-      
+
       if (latitud != null && longitud != null) {
         _actualizarUbicacionAmbulancia(latitud, longitud);
       }
       // No pasar este mensaje al callback original, ya lo procesamos aquí
       return;
     }
-    
+
     // Pasar otros mensajes al callback original si existe
     _originalCallback?.call(data);
   }
 
   void _actualizarUbicacionAmbulancia(double lat, double lng) {
     if (!mounted) return;
-    
+
     final ahora = DateTime.now();
-    
+
     setState(() {
       // Calcular velocidad si tenemos un punto anterior
-      if (_ultimaLat != null && _ultimaLng != null && _ultimoTimestamp != null) {
+      if (_ultimaLat != null &&
+          _ultimaLng != null &&
+          _ultimoTimestamp != null) {
         // Calcular distancia entre el punto anterior y el actual
         final distanciaEntrePuntos = _distance.as(
           LengthUnit.Meter,
           LatLng(_ultimaLat!, _ultimaLng!),
           LatLng(lat, lng),
         );
-        
+
         // Calcular tiempo transcurrido en segundos
-        final tiempoTranscurrido = ahora.difference(_ultimoTimestamp!).inMilliseconds / 1000.0;
-        
+        final tiempoTranscurrido =
+            ahora.difference(_ultimoTimestamp!).inMilliseconds / 1000.0;
+
         // Calcular velocidad en m/s (solo si el tiempo es mayor a 0)
         if (tiempoTranscurrido > 0) {
           _velocidadMs = distanciaEntrePuntos / tiempoTranscurrido;
-          print('[SEGUIMIENTO] Velocidad calculada: ${(_velocidadMs * 3.6).toStringAsFixed(2)} km/h (distancia: ${distanciaEntrePuntos.toStringAsFixed(2)}m, tiempo: ${tiempoTranscurrido.toStringAsFixed(2)}s)');
         }
       }
-      
+
       // Actualizar ubicación actual
       _ambulanciaLat = lat;
       _ambulanciaLng = lng;
-      
+
       // Guardar como último punto para el próximo cálculo
       _ultimaLat = lat;
       _ultimaLng = lng;
       _ultimoTimestamp = ahora;
-      
+
       // Calcular distancia hasta la ubicación de emergencia
       final distancia = _distance.as(
         LengthUnit.Meter,
         LatLng(widget.latitudEmergencia, widget.longitudEmergencia),
         LatLng(lat, lng),
       );
-      
+
       _distanciaMetros = distancia;
-      
+
       // Calcular tiempo estimado usando la velocidad calculada
       // Si no tenemos velocidad calculada aún, usar una velocidad por defecto (50 km/h = 13.89 m/s)
       final velocidadParaCalculo = _velocidadMs > 0 ? _velocidadMs : 13.89;
-      
+
       if (distancia > 0 && velocidadParaCalculo > 0) {
         final tiempoSegundos = distancia / velocidadParaCalculo;
         final minutos = (tiempoSegundos / 60).ceil();
-        _tiempoEstimado = minutos <= 1 ? 'Menos de 1 minuto' : '$minutos minutos';
+        _tiempoEstimado =
+            minutos <= 1 ? 'Menos de 1 minuto' : '$minutos minutos';
       } else {
         _tiempoEstimado = 'Calculando...';
       }
-      
+
       // Verificar si está a menos de 30 metros
       if (distancia < 30 && !_ambulanciaLlego) {
         _ambulanciaLlego = true;
         _finalizarSeguimiento();
       }
-      
+
       // Centrar cámara en la ambulancia solo la primera vez
-      if (_ambulanciaLat != null && _ambulanciaLng != null && !_yaSeCentroEnAmbulancia) {
+      if (_ambulanciaLat != null &&
+          _ambulanciaLng != null &&
+          !_yaSeCentroEnAmbulancia) {
         _yaSeCentroEnAmbulancia = true;
         _mapController.move(
           LatLng(_ambulanciaLat!, _ambulanciaLng!),
           16.0,
         );
-        print('[SEGUIMIENTO] Mapa centrado en ambulancia (primera vez)');
       }
     });
   }
@@ -199,34 +198,32 @@ class _SeguimientoEmergenciaPageState
   Future<void> _finalizarSeguimiento() async {
     // Obtener id de emergencia antes de limpiar
     final emergenciaActiva = await _storage.getEmergenciaActiva();
-    final idEmergencia = emergenciaActiva?['id_emergencia'] as int? ?? emergenciaActiva?['id'] as int?;
-    
+    final idEmergencia = emergenciaActiva?['id_emergencia'] as int? ??
+        emergenciaActiva?['id'] as int?;
+
     // Enviar mensaje de emergencia finalizada al servidor
     if (idEmergencia != null && idEmergencia > 0) {
       widget.wsService.enviarMensaje({
         'tipo': 'emergencia_finalizada',
         'id_emergencia': idEmergencia,
       });
-      print('[SEGUIMIENTO] Mensaje de emergencia finalizada enviado con id: $idEmergencia');
     } else {
-      print('[SEGUIMIENTO] No se pudo obtener id de emergencia para enviar mensaje');
+      // No se pudo obtener id de emergencia para enviar mensaje
     }
-    
+
     // Esperar un momento para que el mensaje se envíe antes de cerrar
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     // Limpiar shared preferences
     await _storage.clearEmergenciaActiva();
     await _storage.setTieneEmergenciaActiva(false);
-    
+
     // Restaurar callback original antes de cerrar
     widget.wsService.onMensajeRecibido = _originalCallback;
-    
+
     // Cerrar websocket
     widget.wsService.desconectar();
-    
-    print('[SEGUIMIENTO] Emergencia finalizada - datos limpiados y websocket cerrado');
-    
+
     if (mounted) {
       setState(() {});
     }
@@ -388,7 +385,7 @@ class _SeguimientoEmergenciaPageState
               ),
             ],
           ),
-          
+
           // Información flotante
           Positioned(
             bottom: 0,
@@ -433,7 +430,8 @@ class _SeguimientoEmergenciaPageState
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: ResQColors.primary500,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -471,7 +469,8 @@ class _SeguimientoEmergenciaPageState
                             ),
                           ),
                           const SizedBox(height: 12),
-                          if (_ambulanciaLat != null && _ambulanciaLng != null) ...[
+                          if (_ambulanciaLat != null &&
+                              _ambulanciaLng != null) ...[
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -517,4 +516,3 @@ class _SeguimientoEmergenciaPageState
     );
   }
 }
-

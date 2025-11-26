@@ -124,7 +124,6 @@ class _PerfilOperadorEmergenciaPageState
 
     try {
       final api = OperadorEmergenciaApi();
-      print('[OPERADOR_EMERGENCIA] Guardando perfil...');
 
       if (widget.forzarCompletar) {
         // Es registro: crear nuevo perfil
@@ -163,7 +162,6 @@ class _PerfilOperadorEmergenciaPageState
       }
 
       if (!mounted) return;
-      print('[OPERADOR_EMERGENCIA] Perfil guardado exitosamente');
 
       if (widget.forzarCompletar) {
         // Después del registro: redirigir a Login para iniciar sesión formalmente
@@ -179,8 +177,6 @@ class _PerfilOperadorEmergenciaPageState
           if (mounted) {
             final storage = StorageService();
             await storage.clearToken();
-            print(
-                '[OPERADOR_EMERGENCIA] Token limpiado, redirigiendo a LoginPage');
 
             Navigator.pushAndRemoveUntil(
               context,
@@ -201,7 +197,6 @@ class _PerfilOperadorEmergenciaPageState
         });
       }
     } catch (e) {
-      print('[OPERADOR_EMERGENCIA] Error al guardar perfil: $e');
       setState(() => _error = e.toString());
     } finally {
       setState(() => _loading = false);

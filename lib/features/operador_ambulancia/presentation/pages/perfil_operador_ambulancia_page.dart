@@ -125,7 +125,6 @@ class _PerfilOperadorAmbulanciaPageState
 
     try {
       final api = OperadorAmbulanciaApi();
-      print('[OPERADOR] Guardando perfil del operador de ambulancia...');
 
       if (widget.forzarCompletar) {
         // Es registro: crear nuevo perfil
@@ -164,7 +163,6 @@ class _PerfilOperadorAmbulanciaPageState
       }
 
       if (!mounted) return;
-      print('[OPERADOR] Perfil guardado exitosamente');
 
       if (widget.forzarCompletar) {
         // Después del registro: redirigir a Login para iniciar sesión formalmente
@@ -180,7 +178,6 @@ class _PerfilOperadorAmbulanciaPageState
           if (mounted) {
             final storage = StorageService();
             await storage.clearToken();
-            print('[OPERADOR] Token limpiado, redirigiendo a LoginPage');
 
             Navigator.pushAndRemoveUntil(
               context,
@@ -201,7 +198,6 @@ class _PerfilOperadorAmbulanciaPageState
         });
       }
     } catch (e) {
-      print('[OPERADOR] Error al guardar perfil: $e');
       setState(() => _error = e.toString());
     } finally {
       setState(() => _loading = false);

@@ -54,7 +54,6 @@ class _LlamadaPageState extends State<LlamadaPage> {
 
     try {
       // Inicializar SDK con timeout
-      print('[LLAMADA] Inicializando SDK...');
       await livekit.LiveKitClient.initialize(
         bypassVoiceProcessing: true,
       ).timeout(
@@ -63,16 +62,12 @@ class _LlamadaPageState extends State<LlamadaPage> {
           throw Exception('Timeout inicializando SDK de LiveKit');
         },
       );
-      print('[LLAMADA] SDK inicializado');
 
       // Extraer credenciales
       final String serverUrl = widget.credenciales['server_url'] as String;
       final String token = widget.credenciales['token'] as String;
       final String identity =
           widget.credenciales['identity'] as String? ?? 'Solicitante';
-
-      print('[LLAMADA] Conectando a: $serverUrl');
-      print('[LLAMADA] Identity: $identity');
 
       // Validar URL de LiveKit
       try {
@@ -83,118 +78,55 @@ class _LlamadaPageState extends State<LlamadaPage> {
         if (uri.host.isEmpty) {
           throw Exception('URL de LiveKit no tiene un host válido');
         }
-        print('[LLAMADA] ✅ URL de LiveKit válida: ${uri.scheme}://${uri.host}');
 
         // Si hay una URL configurada en Env, validar que coincida
         // (opcional, solo para desarrollo/debugging)
         // final envUrl = Env.livekitServerUrl;
         // if (envUrl != null && serverUrl != envUrl) {
-        //   print('[LLAMADA] ⚠️ Advertencia: URL recibida ($serverUrl) no coincide con la configurada en Env ($envUrl)');
         // }
       } catch (e) {
-        print('[LLAMADA] ❌ Error validando URL de LiveKit: $e');
         throw Exception('URL de LiveKit inválida: $e');
       }
 
-      // Verificar DNS antes de conectar con logging detallado
+      // Verificar DNS antes de conectar (sin logs detallados)
       try {
         final uri = Uri.parse(serverUrl);
         final host = uri.host;
-        final scheme = uri.scheme;
-        final port = uri.port;
 
-        print('\n${'═' * 70}');
-        print('[LLAMADA] 🔍 VERIFICACIÓN DE DNS');
-        print('═' * 70);
-        print('[LLAMADA] URL completa: $serverUrl');
-        print('[LLAMADA] Host: $host');
-        print('[LLAMADA] Scheme: $scheme');
-        print('[LLAMADA] Port: $port');
-        print('[LLAMADA] Intentando resolver DNS...\n');
-
-        // Intentar resolver el hostname con diferentes tipos
+        // Intentar primero con IPv4, luego IPv6, luego ANY, pero sin imprimir nada
         try {
-          // Intentar primero con IPv4
-          print('[LLAMADA] Intentando resolución IPv4...');
           final addressesIPv4 = await InternetAddress.lookup(
             host,
             type: InternetAddressType.IPv4,
           ).timeout(
             const Duration(seconds: 5),
             onTimeout: () {
-              print('[LLAMADA] ⏱️ Timeout en resolución IPv4');
               throw TimeoutException('Timeout resolviendo IPv4 para $host');
             },
           );
 
-          if (addressesIPv4.isNotEmpty) {
-            print('[LLAMADA] ✅ DNS IPv4 resuelto correctamente:');
-            for (var addr in addressesIPv4) {
-              print('[LLAMADA]   - ${addr.address} (${addr.type})');
-            }
-          } else {
-            print('[LLAMADA] ⚠️ No se encontraron direcciones IPv4');
-          }
-        } catch (e, stackTrace) {
-          print('[LLAMADA] ❌ Error en resolución IPv4:');
-          print('[LLAMADA]   Tipo: ${e.runtimeType}');
-          print('[LLAMADA]   Mensaje: $e');
-          print('[LLAMADA]   Stack: $stackTrace');
-
-          // Intentar con IPv6 como fallback
-          try {
-            print('[LLAMADA] Intentando resolución IPv6 como fallback...');
+          if (addressesIPv4.isEmpty) {
+            // Intentar con IPv6 como fallback
             final addressesIPv6 = await InternetAddress.lookup(
               host,
               type: InternetAddressType.IPv6,
             ).timeout(const Duration(seconds: 5));
 
-            if (addressesIPv6.isNotEmpty) {
-              print('[LLAMADA] ✅ DNS IPv6 resuelto:');
-              for (var addr in addressesIPv6) {
-                print('[LLAMADA]   - ${addr.address} (${addr.type})');
+            if (addressesIPv6.isEmpty) {
+              // Intentar con tipo ANY como último recurso
+              final addressesAny = await InternetAddress.lookup(host)
+                  .timeout(const Duration(seconds: 5));
+
+              if (addressesAny.isEmpty) {
+                throw Exception('No se encontraron direcciones para $host');
               }
             }
-          } catch (e2) {
-            print('[LLAMADA] ❌ Error también en IPv6: $e2');
           }
-
-          // Intentar con tipo ANY como último recurso
-          try {
-            print('[LLAMADA] Intentando resolución ANY (último recurso)...');
-            final addressesAny = await InternetAddress.lookup(host)
-                .timeout(const Duration(seconds: 5));
-
-            if (addressesAny.isNotEmpty) {
-              print('[LLAMADA] ✅ DNS ANY resuelto:');
-              for (var addr in addressesAny) {
-                print('[LLAMADA]   - ${addr.address} (${addr.type})');
-              }
-            } else {
-              throw Exception('No se encontraron direcciones para $host');
-            }
-          } catch (e3) {
-            print('[LLAMADA] ❌ Error también en resolución ANY: $e3');
-            rethrow; // Re-lanzar el error original
-          }
+        } catch (_) {
+          // Continuar de todas formas, LiveKit puede manejar mejor los errores de red
         }
-
-        print('[LLAMADA] ✅ Verificación DNS completada\n');
-        print('${'═' * 70}\n');
-      } catch (dnsError, stackTrace) {
-        print('\n${'═' * 70}');
-        print('[LLAMADA] ❌ ERROR CRÍTICO DE DNS');
-        print('═' * 70);
-        print('[LLAMADA] Tipo de error: ${dnsError.runtimeType}');
-        print('[LLAMADA] Mensaje: $dnsError');
-        print('[LLAMADA] Stack trace completo:');
-        print(stackTrace);
-        print(
-            '[LLAMADA] ⚠️ Continuando de todas formas - LiveKit puede manejar el error');
-        print('${'═' * 70}\n');
-
+      } catch (_) {
         // Continuar de todas formas - LiveKit puede manejar el error mejor
-        // pero al menos logueamos el problema detalladamente
       }
 
       // Crear room
@@ -205,14 +137,10 @@ class _LlamadaPageState extends State<LlamadaPage> {
       _setupEventListeners();
 
       // Conectar de forma completamente asíncrona
-      print('[LLAMADA] Iniciando conexión...');
-
       // Usar Future.microtask para ejecutar en el siguiente ciclo del event loop
       // Esto evita que connect() bloquee el hilo principal
       Future.microtask(() async {
         try {
-          print('[LLAMADA] Ejecutando connect() en microtask...');
-
           // Intentar conectar con un timeout más largo que el interno de LiveKit
           // LiveKit tiene un timeout interno de 10s, pero podemos esperar más
           // y verificar si la conexión se estableció a pesar del timeout
@@ -220,45 +148,28 @@ class _LlamadaPageState extends State<LlamadaPage> {
             await _room!
                 .connect(serverUrl, token)
                 .timeout(const Duration(seconds: 30));
-            print('[LLAMADA] Connect() completado exitosamente');
           } on TimeoutException {
             // Si hay timeout, verificar si la conexión se estableció de todas formas
-            print(
-                '[LLAMADA] ⚠️ Timeout en connect(), verificando estado de conexión...');
             await Future.delayed(const Duration(milliseconds: 500));
 
             // Verificar si la room está realmente conectada
             // Usar localParticipant como indicador de conexión
-            if (_room != null && _room!.localParticipant != null) {
-              print(
-                  '[LLAMADA] ✅ Conexión establecida a pesar del timeout (localParticipant existe)');
-              // No lanzar error, la conexión está activa
-              return;
-            } else {
-              print('[LLAMADA] ❌ Conexión no establecida después del timeout');
+            if (!(_room != null && _room!.localParticipant != null)) {
               throw TimeoutException(
                 'La conexión a LiveKit tardó más de 30 segundos. '
                 'Verifica tu conexión a internet.',
                 const Duration(seconds: 30),
               );
+            } else {
+              // Conexión establecida a pesar del timeout - no lanzar error
+              return;
             }
           }
         } catch (error, stackTrace) {
           // Solo mostrar error si realmente no estamos conectados
           if (_isConnected) {
-            print(
-                '[LLAMADA] ⚠️ Error en connect() pero ya estamos conectados, ignorando...');
             return;
           }
-
-          print('\n${'═' * 70}');
-          print('[LLAMADA] ❌ ERROR EN CONNECT()');
-          print('═' * 70);
-          print('[LLAMADA] Tipo de error: ${error.runtimeType}');
-          print('[LLAMADA] Mensaje completo: $error');
-          print('[LLAMADA] Stack trace:');
-          print(stackTrace);
-          print('${'═' * 70}\n');
 
           // Detectar específicamente errores de timeout
           String errorMsg = ErrorHandler.getErrorMessage(error);
@@ -282,11 +193,6 @@ class _LlamadaPageState extends State<LlamadaPage> {
               errorString.contains('getaddrinfo failed') ||
               errorString.contains('socketexception') ||
               errorString.contains('name resolution')) {
-            print('[LLAMADA] 🔍 Error identificado como problema de DNS/Red');
-            print('[LLAMADA] Detalles adicionales:');
-            print('[LLAMADA]   - Error original: $error');
-            print('[LLAMADA]   - Tipo: ${error.runtimeType}');
-
             errorMsg =
                 'Error de DNS/Red: No se pudo conectar al servidor LiveKit.\n\n'
                 'Detalles del error:\n'
@@ -312,15 +218,12 @@ class _LlamadaPageState extends State<LlamadaPage> {
 
       // No esperar aquí - dejar que los eventos manejen la conexión
       // El RoomConnectedEvent actualizará el estado automáticamente
-      print('[LLAMADA] Conexión iniciada, esperando eventos...');
 
       // Configurar un timeout más largo (40 segundos) para conexiones lentas
       // El timeout se cancelará automáticamente cuando se reciba RoomConnectedEvent
       _connectionTimeoutTimer?.cancel();
       _connectionTimeoutTimer = Timer(const Duration(seconds: 40), () {
         if (mounted && !_isConnected && _isConnecting) {
-          print(
-              '[LLAMADA] ❌ Timeout esperando conexión después de 40 segundos');
           setState(() {
             _errorMessage =
                 'Timeout conectando a LiveKit después de 40 segundos.\n\n'
@@ -332,7 +235,6 @@ class _LlamadaPageState extends State<LlamadaPage> {
       });
     } catch (e, stackTrace) {
       ErrorHandler.logError('[LLAMADA-CONEXION]', e, stackTrace);
-      print('[LLAMADA] Error en conexión: $e');
 
       // Limpiar recursos en caso de error
       try {
@@ -340,9 +242,7 @@ class _LlamadaPageState extends State<LlamadaPage> {
         _room?.dispose();
         _room = null;
         _listener = null;
-      } catch (cleanupError) {
-        print('[LLAMADA] Error limpiando recursos: $cleanupError');
-      }
+      } catch (cleanupError) {}
 
       if (mounted) {
         setState(() {
@@ -359,11 +259,6 @@ class _LlamadaPageState extends State<LlamadaPage> {
 
     // Escuchar conexión/desconexión
     _listener!.on<livekit.RoomConnectedEvent>((event) {
-      print('[LLAMADA] ✅ RoomConnectedEvent recibido - Conexión establecida');
-      print(
-          '[LLAMADA] LocalParticipant: ${_room!.localParticipant?.identity ?? "null"}');
-      print('[LLAMADA] Room name: ${_room!.name}');
-
       // Cancelar el timeout ya que la conexión fue exitosa
       _connectionTimeoutTimer?.cancel();
       _connectionTimeoutTimer = null;
@@ -374,8 +269,6 @@ class _LlamadaPageState extends State<LlamadaPage> {
           _isConnecting = false;
           _errorMessage = null; // Limpiar cualquier error previo
         });
-        print(
-            '[LLAMADA] Estado actualizado: _isConnected=true, _isConnecting=false');
 
         // Habilitar micrófono automáticamente al conectar
         _enableMicrophoneAutomatically();
@@ -386,8 +279,6 @@ class _LlamadaPageState extends State<LlamadaPage> {
     });
 
     _listener!.on<livekit.RoomDisconnectedEvent>((event) {
-      print('[LLAMADA] ❌ RoomDisconnectedEvent: ${event.reason}');
-
       // Solo mostrar error si no fue una desconexión intencional
       if (mounted) {
         setState(() {
@@ -413,7 +304,6 @@ class _LlamadaPageState extends State<LlamadaPage> {
       final participant = event.participant;
       // Solo procesar participantes remotos (no el local)
       if (participant != _room!.localParticipant) {
-        print('[LLAMADA] Operador conectado: ${participant.identity}');
         if (mounted) {
           setState(() {
             _hasOperator = true;
@@ -433,7 +323,6 @@ class _LlamadaPageState extends State<LlamadaPage> {
       // Solo procesar si es el operador que estaba conectado
       if (participant != _room!.localParticipant &&
           participant == _operatorParticipant) {
-        print('[LLAMADA] Operador desconectado');
         if (mounted) {
           setState(() {
             _hasOperator = false;
@@ -444,28 +333,17 @@ class _LlamadaPageState extends State<LlamadaPage> {
     });
 
     // Escuchar cambios en el estado del micrófono
-    _listener!.on<livekit.TrackSubscribedEvent>((event) {
-      print('[LLAMADA] Track suscrito: ${event.track.kind}');
-    });
+    _listener!.on<livekit.TrackSubscribedEvent>((event) {});
 
-    _listener!.on<livekit.TrackUnsubscribedEvent>((event) {
-      print('[LLAMADA] Track desuscrito: ${event.track.kind}');
-    });
+    _listener!.on<livekit.TrackUnsubscribedEvent>((event) {});
 
     // Escuchar cambios en los speakers activos para obtener el nivel de audio real
     _listener!.on<livekit.ActiveSpeakersChangedEvent>((event) {
-      print('[LLAMADA] 🔊 ActiveSpeakersChangedEvent recibido');
-      print('[LLAMADA] Speakers activos: ${event.speakers.length}');
-
       // Buscar el localParticipant en la lista de speakers activos
       if (_room?.localParticipant != null) {
         final localParticipant = _room!.localParticipant!;
         final audioLevel = localParticipant.audioLevel;
         final isSpeaking = localParticipant.isSpeaking;
-
-        print(
-            '[LLAMADA] 🔊 LocalParticipant - audioLevel: $audioLevel, isSpeaking: $isSpeaking');
-
         // Actualizar el estado con el nivel de audio real
         if (mounted) {
           setState(() {
@@ -475,12 +353,8 @@ class _LlamadaPageState extends State<LlamadaPage> {
                 isSpeaking && audioLevel > 0.01 && _isMicrophoneEnabled;
           });
         }
-
-        print(
-            '[LLAMADA] Audio level actualizado: $audioLevel, isSpeaking: $isSpeaking');
       } else {
-        print(
-            '[LLAMADA] ⚠️ No hay localParticipant en ActiveSpeakersChangedEvent');
+        // No hay localParticipant en ActiveSpeakersChangedEvent
       }
     });
   }
@@ -488,8 +362,6 @@ class _LlamadaPageState extends State<LlamadaPage> {
   Future<void> _enableMicrophoneAutomatically() async {
     try {
       if (_room?.localParticipant == null) {
-        print(
-            '[LLAMADA] ⚠️ No hay localParticipant, no se puede habilitar micrófono');
         return;
       }
 
@@ -497,25 +369,16 @@ class _LlamadaPageState extends State<LlamadaPage> {
       await Future.delayed(const Duration(milliseconds: 500));
 
       final isEnabled = _room!.localParticipant!.isMicrophoneEnabled();
-      print('[LLAMADA] Estado actual del micrófono: $isEnabled');
 
       if (!isEnabled) {
-        print('[LLAMADA] Habilitando micrófono automáticamente...');
         await _room!.localParticipant!.setMicrophoneEnabled(true);
 
         // Verificar que realmente se habilitó
         await Future.delayed(const Duration(milliseconds: 200));
         final nowEnabled = _room!.localParticipant!.isMicrophoneEnabled();
-        print('[LLAMADA] ✅ Micrófono habilitado. Verificación: $nowEnabled');
-
-        // Verificar tracks de audio
-        final audioTracks = _room!.localParticipant!.audioTrackPublications;
-        print('[LLAMADA] Tracks de audio publicados: ${audioTracks.length}');
-        for (var track in audioTracks) {
-          print('[LLAMADA]   - Track: ${track.name}, kind: ${track.kind}');
-        }
+        // Si falla, simplemente se reflejará en el estado
       } else {
-        print('[LLAMADA] Micrófono ya estaba habilitado');
+        // Micrófono ya estaba habilitado
       }
 
       if (mounted) {
@@ -525,7 +388,6 @@ class _LlamadaPageState extends State<LlamadaPage> {
       }
     } catch (e, stackTrace) {
       ErrorHandler.logError('[LLAMADA-ENABLE-MIC]', e, stackTrace);
-      print('[LLAMADA] ❌ Error habilitando micrófono automáticamente: $e');
     }
   }
 
@@ -590,13 +452,6 @@ class _LlamadaPageState extends State<LlamadaPage> {
 
       // Log periódicamente para debug (cada 2 segundos o cuando cambia)
       final now = DateTime.now().millisecondsSinceEpoch;
-      if (now % 2000 < 50 ||
-          hasSound != _isDetectingSound ||
-          (hasSound && audioLevel > 0.05)) {
-        print(
-            '[LLAMADA] 🎤 Polling audio - Level: ${audioLevel.toStringAsFixed(4)}, Speaking: $isSpeaking, HasSound: $hasSound, MicEnabled: $isMicEnabled');
-      }
-
       if (mounted) {
         setState(() {
           _audioLevel = audioLevel;
@@ -626,8 +481,6 @@ class _LlamadaPageState extends State<LlamadaPage> {
       if (_operatorParticipant != null) {
         // LiveKit maneja el audio automáticamente, pero podemos ajustar el volumen
         // Por ahora solo cambiamos el estado visual
-        print(
-            '[LLAMADA] Altavoz ${_isSpeakerEnabled ? "activado" : "desactivado"}');
       }
     } catch (e, stackTrace) {
       ErrorHandler.logError('[LLAMADA-SPEAKER]', e, stackTrace);
@@ -644,23 +497,22 @@ class _LlamadaPageState extends State<LlamadaPage> {
       }
 
       // NO crear emergencia activa al colgar - solo se creará cuando llegue el ID por websocket
-      print('[LLAMADA] Colgando llamada - el recuadro aparecerá cuando llegue el ID por websocket');
-
       if (mounted) {
         // Regresar directamente a HomeSolicitantePage (saltando NuevaEmergenciaPage)
         // Hacer pop dos veces: una para salir de LlamadaPage, otra para salir de NuevaEmergenciaPage
         Navigator.of(context).pop(); // Sale de LlamadaPage
         if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop(); // Sale de NuevaEmergenciaPage, regresa a Home
+          Navigator.of(context)
+              .pop(); // Sale de NuevaEmergenciaPage, regresa a Home
         }
       }
     } catch (e) {
-      print('[LLAMADA] Error al colgar: $e');
       if (mounted) {
         // Regresar directamente a HomeSolicitantePage
         Navigator.of(context).pop(); // Sale de LlamadaPage
         if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop(); // Sale de NuevaEmergenciaPage, regresa a Home
+          Navigator.of(context)
+              .pop(); // Sale de NuevaEmergenciaPage, regresa a Home
         }
       }
     }
@@ -773,8 +625,6 @@ class _LlamadaPageState extends State<LlamadaPage> {
 
   @override
   void dispose() {
-    print('[LLAMADA] Disposing LlamadaPage...');
-
     // Cancelar timers
     _connectionTimeoutTimer?.cancel();
     _connectionTimeoutTimer = null;

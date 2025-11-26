@@ -26,7 +26,8 @@ class HomeSolicitantePage extends StatefulWidget {
   State<HomeSolicitantePage> createState() => _HomeSolicitantePageState();
 }
 
-class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsBindingObserver {
+class _HomeSolicitantePageState extends State<HomeSolicitantePage>
+    with WidgetsBindingObserver {
   final _auth = AuthController();
   final _storage = StorageService();
   final _historialApi = HistorialEmergenciasApi();
@@ -47,7 +48,6 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
   void initState() {
     super.initState();
     _nombreUsuario = widget.nombreUsuario;
-    print('[HOME] Iniciando...');
     WidgetsBinding.instance.addObserver(this);
     // Cargar nombre de forma lazy (cuando sea necesario renderizar)
   }
@@ -84,8 +84,6 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
     if (!mounted) return;
 
     try {
-      print('[HOME] Cargando nombre del storage...');
-
       // Primero intentar del storage con timeout
       String? nombre;
       try {
@@ -94,28 +92,23 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
               onTimeout: () => null,
             );
       } catch (e) {
-        print('[HOME] Error obteniendo nombre del storage: $e');
         nombre = null;
       }
 
       // Si no está en storage, intentar obtenerlo del JWT (rápido, no es async)
       if (nombre == null || nombre.isEmpty) {
-        print('[HOME] Nombre no en storage, intentando obtener del JWT...');
         try {
           final token = await _storage.getToken();
           if (token != null) {
             nombre = JwtHelper.getNombreDeUsuario(token);
-            print('[HOME] Nombre obtenido del JWT: $nombre');
             if (nombre != null && nombre.isNotEmpty) {
               // Guardar en background sin esperar
               _storage.saveNombreUsuario(nombre);
             }
           }
         } catch (e) {
-          print('[HOME] Error obteniendo token: $e');
+          // Ignorar error al obtener token/nombre para saludo
         }
-      } else {
-        print('[HOME] Nombre obtenido del storage: $nombre');
       }
 
       if (!mounted) return;
@@ -123,12 +116,10 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
       setState(() {
         if (nombre != null && nombre.isNotEmpty) {
           _nombreUsuario = nombre;
-          print('[HOME] Nombre establecido: $nombre');
         }
         _cargandoNombre = false;
       });
     } catch (e) {
-      print('[HOME] Error cargando nombre: $e');
       if (mounted) {
         setState(() {
           _cargandoNombre = false;
@@ -141,7 +132,6 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
     if (!mounted) return;
 
     try {
-      print('[HOME] Cargando historial de emergencias...');
       final emergencias = await _historialApi.obtenerHistorial(limit: 10);
 
       if (!mounted) return;
@@ -151,7 +141,6 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
         _cargandoHistorial = false;
         _errorHistorial = null;
       });
-      print('[HOME] Historial cargado: ${emergencias.length} emergencias');
     } catch (e, stackTrace) {
       ErrorHandler.logError('[HOME-HISTORIAL]', e, stackTrace);
       if (!mounted) return;
@@ -167,7 +156,6 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
     if (!mounted) return;
 
     try {
-      print('[HOME] Cargando emergencia activa...');
       final emergencia = await _storage.getEmergenciaActiva();
 
       if (!mounted) return;
@@ -179,18 +167,14 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
 
       // Solo conectar al websocket si hay una emergencia activa
       if (emergencia != null) {
-        print('[HOME] Emergencia activa encontrada con ID: ${emergencia['id']} - conectando websocket');
         _conectarWebSocketSolicitante();
       } else {
-        print('[HOME] No hay emergencia activa - no se conectará el websocket');
         // Desconectar si está conectado pero no hay emergencia activa
         if (_wsSolicitanteService.estaConectado) {
-          print('[HOME] Desconectando websocket porque no hay emergencia activa');
           _wsSolicitanteService.desconectar();
         }
       }
     } catch (e) {
-      print('[HOME] Error cargando emergencia activa: $e');
       if (!mounted) return;
       setState(() {
         _cargandoEmergenciaActiva = false;
@@ -202,39 +186,36 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
     try {
       final idSolicitante = await _storage.getPersonaId();
       if (idSolicitante == null || idSolicitante == 0) {
-        print('[HOME] No se pudo obtener id_solicitante para WebSocket');
         return;
       }
 
       // Configurar callbacks antes de conectar
-      _wsSolicitanteService.onMensajeRecibido = (Map<String, dynamic> data) async {
-        print('[HOME] Mensaje recibido del websocket del solicitante: $data');
-        
+      _wsSolicitanteService.onMensajeRecibido =
+          (Map<String, dynamic> data) async {
         final tipo = data['tipo'] as String?;
-        
+
         // Procesar mensajes de ubicación de ambulancia
         if (tipo == 'ubicacion_ambulancia') {
           // Este mensaje se procesará en la pantalla de seguimiento
-          // Solo logueamos aquí
-          print('[HOME] Mensaje de ubicación de ambulancia recibido (se procesará en seguimiento)');
           return;
         }
-        
+
         // Procesar el mensaje - puede venir con "type" o "tipo"
         final datos = data['data'] as Map<String, dynamic>?;
-        
+
         if (datos != null) {
           // Si el mensaje contiene información de estado o ID de emergencia
           final estado = datos['estado'] as String?;
-          final idEmergencia = datos['id'] as int?; // El ID en el mensaje es el id_emergencia
-          
+          final idEmergencia =
+              datos['id'] as int?; // El ID en el mensaje es el id_emergencia
+
           // Si viene el ID de emergencia, actualizar la emergencia activa
           if (idEmergencia != null && idEmergencia != 0) {
             final idEmergenciaFinal = idEmergencia;
-            
+
             // Verificar si ya existe una emergencia activa
             final emergenciaActual = await _storage.getEmergenciaActiva();
-            
+
             if (emergenciaActual == null) {
               // Crear nueva emergencia activa con id_emergencia
               // Poner id_solicitud en 0 y guardar id_emergencia
@@ -244,11 +225,9 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
                 estado: estado ?? 'creada',
                 fecha: DateTime.now(),
               );
-              print('[HOME] Emergencia activa creada con ID Emergencia: $idEmergenciaFinal, Estado: ${estado ?? 'creada'}');
-              
+
               // Conectar websocket si no está conectado (porque ahora hay emergencia activa)
               if (!_wsSolicitanteService.estaConectado) {
-                print('[HOME] Conectando websocket porque se creó una emergencia activa');
                 _conectarWebSocketSolicitante();
               }
             } else {
@@ -256,12 +235,9 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
               await _storage.updateIdEmergenciaActiva(idEmergenciaFinal);
               if (estado != null) {
                 await _storage.updateEstadoEmergenciaActiva(estado);
-                print('[HOME] Emergencia activa actualizada - ID Emergencia: $idEmergenciaFinal, Estado: $estado');
-              } else {
-                print('[HOME] Emergencia activa actualizada - ID Emergencia: $idEmergenciaFinal');
               }
             }
-            
+
             // Recargar la emergencia activa para mostrarla
             // Actualizar en memoria sin recargar todo
             if (mounted) {
@@ -280,7 +256,6 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
             final emergenciaActual = await _storage.getEmergenciaActiva();
             if (emergenciaActual != null) {
               await _storage.updateEstadoEmergenciaActiva(estado);
-              print('[HOME] Estado de emergencia actualizado: $estado');
               if (mounted) {
                 setState(() {
                   _emergenciaActiva!['estado'] = estado;
@@ -291,12 +266,9 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
         }
       };
 
-      _wsSolicitanteService.onError = (String error) {
-        print('[HOME] Error en websocket del solicitante: $error');
-      };
+      _wsSolicitanteService.onError = (String error) {};
 
       _wsSolicitanteService.onConexionPerdida = () {
-        print('[HOME] Conexión websocket del solicitante perdida, intentando reconectar...');
         // Intentar reconectar después de un delay
         Future.delayed(const Duration(seconds: 3), () {
           if (mounted) {
@@ -307,14 +279,12 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
 
       // Conectar al websocket del solicitante (solo si no está conectado)
       if (!_wsSolicitanteService.estaConectado) {
-        print('[HOME] Conectando al WebSocket del solicitante: $idSolicitante');
         await _wsSolicitanteService.conectar(idSolicitante);
-        print('[HOME] WebSocket del solicitante conectado exitosamente');
       } else {
-        print('[HOME] WebSocket del solicitante ya está conectado');
+        // WebSocket ya estaba conectado
       }
     } catch (e) {
-      print('[HOME] Error conectando al WebSocket del solicitante: $e');
+      // Error conectando al WebSocket; se intentará nuevamente más tarde
     }
   }
 
@@ -416,11 +386,12 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
                         fecha: _emergenciaActiva!['fecha'] as DateTime,
                         idSolicitud: _emergenciaActiva!['id'] as int?,
                         onIniciarSeguimiento: () async {
-                          final emergencia = await _storage.getEmergenciaActiva();
+                          final emergencia =
+                              await _storage.getEmergenciaActiva();
                           if (emergencia != null) {
                             final latitud = emergencia['latitud'] as double?;
                             final longitud = emergencia['longitud'] as double?;
-                            
+
                             if (latitud != null && longitud != null) {
                               Navigator.push(
                                 context,
@@ -438,7 +409,8 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage> with WidgetsB
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('No se encontró la ubicación de la emergencia'),
+                                  content: Text(
+                                      'No se encontró la ubicación de la emergencia'),
                                 ),
                               );
                             }
