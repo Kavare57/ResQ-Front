@@ -62,7 +62,6 @@ class _SeguimientoSolicitudPageState extends State<SeguimientoSolicitudPage> {
 
   void _configurarWebSocket() {
     _wsService.onEstadoActualizado = (estado) {
-      print('[SEGUIMIENTO] Estado actualizado: ${estado.estado}');
       setState(() {
         _solicitud = SolicitudSeguimiento(
           id: _solicitud.id,
@@ -80,8 +79,6 @@ class _SeguimientoSolicitudPageState extends State<SeguimientoSolicitudPage> {
     };
 
     _wsService.onUbicacionAmbulancia = (ubicacion) {
-      print(
-          '[SEGUIMIENTO] Ubicación ambulancia: ${ubicacion.distanciaFormato}');
       setState(() {
         _solicitud = SolicitudSeguimiento(
           id: _solicitud.id,
@@ -116,7 +113,6 @@ class _SeguimientoSolicitudPageState extends State<SeguimientoSolicitudPage> {
     };
 
     _wsService.onError = (mensaje) {
-      print('[SEGUIMIENTO] Error: $mensaje');
       if (mounted) {
         setState(() {
           _errorConexion = mensaje;
@@ -125,7 +121,6 @@ class _SeguimientoSolicitudPageState extends State<SeguimientoSolicitudPage> {
     };
 
     _wsService.onConexionPerdida = () {
-      print('[SEGUIMIENTO] Conexión perdida');
       if (mounted) {
         setState(() {
           _errorConexion = 'Conexión perdida con el servidor';

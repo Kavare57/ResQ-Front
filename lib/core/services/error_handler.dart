@@ -65,9 +65,7 @@ class ErrorHandler {
   }
   
   static void logError(String context, dynamic error, StackTrace? stackTrace) {
-    print('❌ [$context] ERROR: $error');
-    if (stackTrace != null) {
-      print('Stack: $stackTrace');
-    }
+    // Logging silencioso: aquí podrías integrar un sistema de logs externo
+    // (Sentry, Crashlytics, etc.). Por ahora, no se imprime nada en consola.
   }
 }

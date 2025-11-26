@@ -9,7 +9,6 @@ import 'routes.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  print('=== ResQ App Starting ===');
   runApp(const ResQApp());
 }
 
@@ -33,7 +32,6 @@ class _ResQAppState extends State<ResQApp> {
 
   Future<void> _checkAuth() async {
     // Solicitar permisos de ubicación al iniciar la app por primera vez
-    print('[APP] Solicitando permisos de ubicación...');
     try {
       // Verificar si el servicio de ubicación está habilitado
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -41,42 +39,27 @@ class _ResQAppState extends State<ResQApp> {
         // Verificar permisos usando Geolocator directamente
         LocationPermission permission = await Geolocator.checkPermission();
         if (permission == LocationPermission.denied) {
-          print('[APP] Permisos de ubicación denegados, solicitando...');
           permission = await Geolocator.requestPermission();
-          if (permission == LocationPermission.denied) {
-            print('[APP] Permisos de ubicación denegados por el usuario');
-          } else if (permission == LocationPermission.deniedForever) {
-            print('[APP] Permisos de ubicación denegados permanentemente');
-          } else {
-            print('[APP] Permisos de ubicación otorgados');
+          if (permission == LocationPermission.denied ||
+              permission == LocationPermission.deniedForever) {
+            // Permisos no otorgados, no hacer nada más aquí
           }
-        } else if (permission == LocationPermission.whileInUse ||
-            permission == LocationPermission.always) {
-          print('[APP] Permisos de ubicación ya otorgados');
         }
-      } else {
-        print('[APP] Servicio de ubicación deshabilitado');
       }
     } catch (e) {
-      print('[APP] Error solicitando permisos de ubicación: $e');
     }
 
     // Solicitar otros permisos (micrófono, cámara) si es necesario
-    print('[APP] Solicitando otros permisos...');
     await PermissionsService.requestAllPermissions();
 
     // Iniciar obtención de ubicación precisa en segundo plano (no bloquea)
-    print('[APP] Iniciando LocationService en segundo plano...');
     LocationService().initialize().catchError((e) {
-      print('[APP] Error iniciando LocationService: $e');
     });
 
     // Pregunta al AuthController si hay token válido guardado
     final startTime = DateTime.now();
 
     final ok = await _auth.isLoggedIn();
-    final elapsed = DateTime.now().difference(startTime).inMilliseconds;
-    print('[AUTH] Verificación completada en ${elapsed}ms - LoggedIn: $ok');
     setState(() {
       _loggedIn = ok;
       _checking = false;

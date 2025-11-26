@@ -14,7 +14,6 @@ class AuthApi {
   /// }
   Future<Map<String, dynamic>> login(String identifier, String password) async {
     final url = Uri.parse('$baseUrl/auth/login');
-    print('[LOGIN] Iniciando...');
 
     try {
       final res = await http
@@ -30,7 +29,6 @@ class AuthApi {
         throw Exception('Timeout en login (10s)');
       });
 
-      print('[LOGIN] Respuesta: ${res.statusCode}');
       if (res.statusCode == 200) {
         return jsonDecode(res.body) as Map<String, dynamic>;
       } else {
@@ -51,7 +49,6 @@ class AuthApi {
         throw Exception(message);
       }
     } catch (e) {
-      print('[LOGIN] Error: $e');
       rethrow;
     }
   }
@@ -68,7 +65,6 @@ class AuthApi {
   Future<Map<String, dynamic>> register(
       String nombre, String email, String password) async {
     final url = Uri.parse('$baseUrl/usuarios');
-    print('[REGISTER] 1/9 - Creando usuario...');
 
     try {
       final res = await http
@@ -85,17 +81,13 @@ class AuthApi {
         throw Exception('Timeout en registro (10s)');
       });
 
-      print('[REGISTER] 1/9 - Respuesta: ${res.statusCode}');
       if (res.statusCode == 201) {
         final usuarioCreado = jsonDecode(res.body) as Map<String, dynamic>;
-        print('[REGISTER] 1/9 - Usuario creado con ID: ${usuarioCreado['id']}');
         return usuarioCreado;
       } else {
-        print('[REGISTER] Error ${res.statusCode}: ${res.body}');
         throw Exception('Error: ${res.statusCode}');
       }
     } catch (e) {
-      print('[REGISTER] Error: $e');
       rethrow;
     }
   }
@@ -130,7 +122,6 @@ class AuthApi {
   /// Respuesta: { "id_persona": int | null }
   Future<int?> obtenerIdPersona(String identifier, String contrasena) async {
     final url = Uri.parse('$baseUrl/usuarios/obtener-id-persona');
-    print('[OBTENER_ID_PERSONA] Buscando id_persona...');
 
     try {
       final res = await http
@@ -146,16 +137,13 @@ class AuthApi {
         throw Exception('Timeout obteniendo id_persona (10s)');
       });
 
-      print('[OBTENER_ID_PERSONA] Respuesta: ${res.statusCode}');
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         return data['id_persona'] as int?;
       } else {
-        print('[OBTENER_ID_PERSONA] Error: ${res.statusCode} ${res.body}');
         throw Exception('Error: ${res.statusCode}');
       }
     } catch (e) {
-      print('[OBTENER_ID_PERSONA] Error: $e');
       // No relanzamos el error, retornamos null para que el flujo continúe
       return null;
     }
@@ -169,7 +157,6 @@ class AuthApi {
     required int idUsuario,
   }) async {
     final url = Uri.parse('$baseUrl/usuarios/me?id_usuario=$idUsuario');
-    print('[OBTENER_ID_PERSONA_ACTUAL] Obteniendo id_persona...');
 
     try {
       final res = await http.get(
@@ -182,19 +169,14 @@ class AuthApi {
         throw Exception('Timeout obteniendo id_persona (10s)');
       });
 
-      print('[OBTENER_ID_PERSONA_ACTUAL] Respuesta: ${res.statusCode}');
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         final idPersona = data['id_persona'] as int?;
-        print('[OBTENER_ID_PERSONA_ACTUAL] ID persona: $idPersona');
         return idPersona;
       } else {
-        print(
-            '[OBTENER_ID_PERSONA_ACTUAL] Error: ${res.statusCode} ${res.body}');
         return null;
       }
     } catch (e) {
-      print('[OBTENER_ID_PERSONA_ACTUAL] Error: $e');
       return null;
     }
   }

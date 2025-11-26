@@ -7,10 +7,8 @@ class PermissionsService {
   static Future<bool> requestAllPermissions() async {
     try {
       final result = await platform.invokeMethod<bool>('requestAllPermissions');
-      print('[PERMISSIONS] Resultado de solicitud: ${result ?? false}');
       return result ?? false;
     } catch (e) {
-      print('[PERMISSIONS] Error solicitando permisos: $e');
       return false;
     }
   }
@@ -19,10 +17,8 @@ class PermissionsService {
   static Future<bool> requestCallPermissions() async {
     try {
       final result = await platform.invokeMethod<bool>('requestCallPermissions');
-      print('[PERMISSIONS] Permisos de llamada solicitados: ${result ?? false}');
       return result ?? false;
     } catch (e) {
-      print('[PERMISSIONS] Error solicitando permisos de llamada: $e');
       return false;
     }
   }
@@ -31,10 +27,8 @@ class PermissionsService {
   static Future<bool> requestLocationPermissions() async {
     try {
       final result = await platform.invokeMethod<bool>('requestLocationPermissions');
-      print('[PERMISSIONS] Permisos de ubicación solicitados: ${result ?? false}');
       return result ?? false;
     } catch (e) {
-      print('[PERMISSIONS] Error solicitando permisos de ubicación: $e');
       return false;
     }
   }
@@ -45,7 +39,6 @@ class PermissionsService {
       final result = await platform.invokeMethod<bool>('hasAllPermissions');
       return result ?? false;
     } catch (e) {
-      print('[PERMISSIONS] Error verificando permisos: $e');
       return false;
     }
   }

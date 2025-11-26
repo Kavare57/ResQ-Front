@@ -47,8 +47,6 @@ class LiveKitApi {
       },
     };
 
-    print('DEBUG: Solicitando ambulancia con body: $body');
-
     final res = await http.post(
       url,
       headers: {
@@ -57,9 +55,6 @@ class LiveKitApi {
       },
       body: jsonEncode(body),
     );
-
-    print('DEBUG: Response status: ${res.statusCode}');
-    print('DEBUG: Response body: ${res.body}');
 
     if (res.statusCode != 200) {
       throw Exception('Error al solicitar ambulancia: ${res.body}');

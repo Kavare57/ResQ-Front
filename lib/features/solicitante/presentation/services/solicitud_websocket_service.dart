@@ -1,4 +1,5 @@
 ﻿import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../../../core/constants/env.dart';
 import '../../../../core/services/storage_service.dart';
@@ -8,7 +9,7 @@ import '../models/solicitud_seguimiento.dart';
 class SolicitudWebSocketService {
   WebSocketChannel? _canal;
   final _storage = StorageService();
-  
+
   // Callbacks para eventos
   Function(EstadoEmergencia)? onEstadoActualizado;
   Function(UbicacionAmbulancia)? onUbicacionAmbulancia;
@@ -16,6 +17,15 @@ class SolicitudWebSocketService {
   Function(String)? onError;
   Function()? onConexionPerdida;
 
+  /// Conecta al WebSocket usando la URL informativa del backend.
+  ///
+  /// Backend actual:
+  /// - GET /recibir-notificaciones/websocket-info  → devuelve, entre otros
+  ///   campos, `websocket_url`, que ya incluye el `id_solicitante` y la ruta
+  ///   real (`ws/solicitantes/{id_solicitante}`).
+  ///
+  /// El parámetro [idSolicitud] se mantiene por compatibilidad con la firma
+  /// actual pero ya no se usa para construir la URL.
   Future<void> conectar(int idSolicitud) async {
     try {
       final token = await _storage.getToken();
@@ -23,28 +33,43 @@ class SolicitudWebSocketService {
         throw Exception('No hay token de autenticación');
       }
 
-      final baseUrl = Env.apiBaseUrl.replaceFirst('http', 'ws');
-      final wsUrl = '$baseUrl/emergencias/seguimiento/$idSolicitud?token=$token';
+      // 1) Obtener la URL real del WebSocket desde el endpoint informativo
+      final infoUrl =
+          Uri.parse('${Env.apiBaseUrl}/recibir-notificaciones/websocket-info');
 
-      print('[WS-SOLICITUD] Conectando a: $wsUrl');
+      final infoRes = await http.get(
+        infoUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (infoRes.statusCode != 200) {
+        throw Exception(
+          'No se pudo obtener la URL del WebSocket (${infoRes.statusCode}): ${infoRes.body}',
+        );
+      }
+
+      final infoBody = jsonDecode(infoRes.body) as Map<String, dynamic>;
+      final wsUrl = infoBody['websocket_url'] as String?;
+      if (wsUrl == null || wsUrl.isEmpty) {
+        throw Exception('Respuesta inválida: websocket_url no encontrado');
+      }
 
       _canal = WebSocketChannel.connect(Uri.parse(wsUrl));
 
       _canal?.stream.listen(
         _procesarMensaje,
         onError: (error) {
-          print('[WS-SOLICITUD] Error en WebSocket: $error');
           ErrorHandler.logError('[WS-SOLICITUD-ERROR]', error, null);
           onError?.call('Error de conexión: $error');
           onConexionPerdida?.call();
         },
         onDone: () {
-          print('[WS-SOLICITUD] WebSocket cerrado');
           onConexionPerdida?.call();
         },
       );
-
-      print('[WS-SOLICITUD] Conectado exitosamente');
     } catch (e, stackTrace) {
       ErrorHandler.logError('[WS-SOLICITUD-CONEXION]', e, stackTrace);
       onError?.call(ErrorHandler.getErrorMessage(e));
@@ -56,8 +81,6 @@ class SolicitudWebSocketService {
     try {
       final data = jsonDecode(mensaje as String) as Map<String, dynamic>;
       final tipo = data['tipo'] as String?;
-
-      print('[WS-SOLICITUD] Mensaje recibido: tipo=$tipo');
 
       switch (tipo) {
         case 'estado_actualizado':
@@ -72,7 +95,7 @@ class SolicitudWebSocketService {
             data['data'] as Map<String, dynamic>,
           );
           onUbicacionAmbulancia?.call(ubicacion);
-          
+
           if (ubicacion.estaCerca) {
             onNearbyAmbulancia?.call(true);
           }
@@ -88,7 +111,6 @@ class SolicitudWebSocketService {
           break;
 
         default:
-          print('[WS-SOLICITUD] Tipo de mensaje desconocido: $tipo');
       }
     } catch (e, stackTrace) {
       ErrorHandler.logError('[WS-SOLICITUD-PROCESAR]', e, stackTrace);
@@ -100,10 +122,7 @@ class SolicitudWebSocketService {
     try {
       _canal?.sink.close();
       _canal = null;
-      print('[WS-SOLICITUD] Desconectado');
-    } catch (e) {
-      print('[WS-SOLICITUD] Error desconectando: $e');
-    }
+    } catch (e) {}
   }
 
   bool get estaConectado => _canal != null;

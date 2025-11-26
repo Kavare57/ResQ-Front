@@ -16,7 +16,6 @@ class OperadorEmergenciaApi {
       if (token == null) throw Exception('No hay token disponible');
 
       final url = Uri.parse('$baseUrl/operadores-emergencia/me');
-      print('[OPERADOR_EMERGENCIA] Obteniendo perfil actual...');
 
       final res = await http.get(
         url,
@@ -28,14 +27,12 @@ class OperadorEmergenciaApi {
         throw Exception('Timeout obteniendo perfil (15s)');
       });
 
-      print('[OPERADOR_EMERGENCIA] Respuesta: ${res.statusCode}');
       if (res.statusCode == 200) {
         return jsonDecode(res.body) as Map<String, dynamic>;
       } else {
         throw Exception('Error: ${res.statusCode}');
       }
     } catch (e) {
-      print('[OPERADOR_EMERGENCIA] Error obteniendo perfil: $e');
       rethrow;
     }
   }
@@ -59,7 +56,6 @@ class OperadorEmergenciaApi {
       if (token == null) throw Exception('No hay token disponible');
 
       final url = Uri.parse('$baseUrl/operadores-emergencia');
-      print('[OPERADOR_EMERGENCIA] Creando perfil...');
 
       final body = {
         'nombre': nombre,
@@ -84,14 +80,12 @@ class OperadorEmergenciaApi {
         throw Exception('Timeout creando perfil (15s)');
       });
 
-      print('[OPERADOR_EMERGENCIA] Respuesta: ${res.statusCode}');
       if (res.statusCode == 201) {
         return jsonDecode(res.body) as Map<String, dynamic>;
       } else {
         throw Exception('Error: ${res.statusCode} - ${res.body}');
       }
     } catch (e) {
-      print('[OPERADOR_EMERGENCIA] Error creando perfil: $e');
       rethrow;
     }
   }
@@ -114,7 +108,6 @@ class OperadorEmergenciaApi {
       if (token == null) throw Exception('No hay token disponible');
 
       final url = Uri.parse('$baseUrl/operadores-emergencia/me');
-      print('[OPERADOR_EMERGENCIA] Guardando perfil...');
 
       final body = {
         'nombre': nombre,
@@ -139,14 +132,12 @@ class OperadorEmergenciaApi {
         throw Exception('Timeout guardando perfil (15s)');
       });
 
-      print('[OPERADOR_EMERGENCIA] Respuesta: ${res.statusCode}');
       if (res.statusCode == 200) {
         return jsonDecode(res.body) as Map<String, dynamic>;
       } else {
         throw Exception('Error: ${res.statusCode} - ${res.body}');
       }
     } catch (e) {
-      print('[OPERADOR_EMERGENCIA] Error guardando perfil: $e');
       rethrow;
     }
   }
@@ -156,9 +147,7 @@ class OperadorEmergenciaApi {
   Future<void> sincronizarOperador() async {
     try {
       await obtenerPerfilActual();
-      print('[OPERADOR_EMERGENCIA] Sincronización exitosa');
     } catch (e) {
-      print('[OPERADOR_EMERGENCIA] Error en sincronización: $e');
       rethrow;
     }
   }

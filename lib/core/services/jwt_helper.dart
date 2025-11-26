@@ -8,7 +8,7 @@ class JwtHelper {
       // Dividir el token en sus 3 partes (header.payload.signature)
       final parts = token.split('.');
       if (parts.length != 3) {
-        if (kDebugMode) print('[JWT] Token inválido: debe tener 3 partes');
+      if (kDebugMode) {}
         return null;
       }
 
@@ -22,7 +22,7 @@ class JwtHelper {
       final decoded = jsonDecode(payload) as Map<String, dynamic>;
       return decoded;
     } catch (e) {
-      if (kDebugMode) print('[JWT] Error decodificando token: $e');
+      if (kDebugMode) {}
       return null;
     }
   }
@@ -83,7 +83,7 @@ class JwtHelper {
       final expiryDate = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
       return expiryDate.isBefore(DateTime.now());
     } catch (e) {
-      if (kDebugMode) print('[JWT] Error verificando expiración: $e');
+      if (kDebugMode) {}
       return true;
     }
   }

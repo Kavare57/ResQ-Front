@@ -64,20 +64,15 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
         _mapController.move(userPosition, 16);
       }
       
-      print('[NUEVA_EMERGENCIA] Ubicación cargada del servicio: ${position.latitude}, ${position.longitude}');
       
       // Si no hay ubicación precisa aún, continuar obteniéndola en segundo plano
       if (!locationService.hasPreciseLocation()) {
-        print('[NUEVA_EMERGENCIA] Ubicación precisa aún no disponible, continuando obtención en segundo plano...');
         locationService.initialize().catchError((e) {
-          print('[NUEVA_EMERGENCIA] Error obteniendo ubicación precisa: $e');
         });
       }
     } else {
-      print('[NUEVA_EMERGENCIA] No hay ubicación disponible en el servicio, usando ubicación por defecto');
       // Intentar inicializar el servicio si no se ha hecho
       locationService.initialize().catchError((e) {
-        print('[NUEVA_EMERGENCIA] Error inicializando LocationService: $e');
       });
     }
   }
@@ -120,7 +115,6 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
         _mapController.move(userPosition, 16);
       }
       
-      print('[UBICACION] Ubicación actualizada: ${position.latitude}, ${position.longitude}');
     } catch (e, stackTrace) {
       ErrorHandler.logError('[UBICACION]', e, stackTrace);
       if (!mounted) return;
@@ -178,7 +172,6 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
         },
       );
 
-      print('[BUSCAR] URL: $uri');
       final response = await http.get(
         uri,
         headers: {
@@ -186,8 +179,6 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
         },
       ).timeout(const Duration(seconds: 12));
 
-      print('[BUSCAR] Status: ${response.statusCode}');
-      print('[BUSCAR] Response: ${response.body}');
 
       if (response.statusCode != 200) {
         throw Exception(
@@ -211,7 +202,6 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       final displayName =
           firstResult['display_name'] as String? ?? 'Ubicación encontrada';
 
-      print('[BUSCAR] Encontrado: $displayName - Lat: $lat, Lng: $lng');
 
       final position = LatLng(lat, lng);
       _updateSelectedPosition(position);
@@ -261,10 +251,8 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
       // Actualizar también las variables locales para mantener consistencia
       _updateSelectedPosition(LatLng(lat, lng));
       
-      print('[EMERGENCIA] Usando ubicación: $lat, $lng (precisa: ${locationService.hasPreciseLocation()})');
 
       // Solicitar permisos para la llamada
-      print('[EMERGENCIA] Solicitando permisos de micrófono y cámara...');
       final hasPermissions = await PermissionsService.requestCallPermissions();
 
       if (!hasPermissions && !mounted) return;
@@ -276,12 +264,6 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
         lng: lng,
       );
 
-      print('[NUEVA_EMERGENCIA] Respuesta recibida:');
-      print('[NUEVA_EMERGENCIA] room: ${sala['room']}');
-      print('[NUEVA_EMERGENCIA] token: ${sala['token']?.substring(0, 20)}...');
-      print('[NUEVA_EMERGENCIA] identity: ${sala['identity']}');
-      print('[NUEVA_EMERGENCIA] server_url: ${sala['server_url']}');
-      print('[NUEVA_EMERGENCIA] Credenciales completas: $sala');
 
       // Guardar id_solicitud y crear recuadro de emergencia activa
       final idSolicitud = sala['id_solicitud'];
@@ -296,12 +278,10 @@ class _NuevaEmergenciaPageState extends State<NuevaEmergenciaPage> {
           latitud: lat,
           longitud: lng,
         );
-        print(
             '[NUEVA_EMERGENCIA] ID de solicitud guardado y recuadro creado: $idFinal');
       }
 
       // El websocket se conectará automáticamente en el home cuando detecte la emergencia activa
-      print('[NUEVA_EMERGENCIA] Emergencia activa guardada - el websocket se conectará en el home');
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
