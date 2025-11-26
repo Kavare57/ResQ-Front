@@ -49,6 +49,13 @@ class _SeguimientoEmergenciaPageState extends State<SeguimientoEmergenciaPage> {
   DateTime? _ultimoTimestamp;
   double _velocidadMs = 0.0; // Velocidad en m/s
 
+  // Para rastrear desplazamiento total
+  double _desplazamientoTotal = 0.0; // en metros
+  bool _ubicacionDespachoGuardada = false; // Flag para guardar solo una vez
+  bool _estadoDespachado = false; // Flag para saber si el estado es AMBULANCIA_ASIGNADA
+  double? _primeraUbicacionLat; // Primera ubicación recibida (por si llega antes del cambio de estado)
+  double? _primeraUbicacionLng;
+
   // Callback original del websocket (para restaurarlo después)
   Function(Map<String, dynamic>)? _originalCallback;
 
@@ -63,6 +70,9 @@ class _SeguimientoEmergenciaPageState extends State<SeguimientoEmergenciaPage> {
     // Configurar callback para recibir ubicaciones
     widget.wsService.onMensajeRecibido = _procesarMensajeWebSocket;
 
+    // Verificar estado actual de la emergencia
+    _verificarEstadoInicial();
+
     // Obtener ubicación actual del usuario
     _obtenerUbicacionActual();
 
@@ -73,6 +83,14 @@ class _SeguimientoEmergenciaPageState extends State<SeguimientoEmergenciaPage> {
         15.0,
       );
     });
+  }
+
+  Future<void> _verificarEstadoInicial() async {
+    final emergenciaActiva = await _storage.getEmergenciaActiva();
+    final estado = emergenciaActiva?['estado'] as String?;
+    if (estado != null && estado.toUpperCase() == 'AMBULANCIA_ASIGNADA') {
+      _estadoDespachado = true;
+    }
   }
 
   Future<void> _obtenerUbicacionActual() async {
@@ -100,8 +118,9 @@ class _SeguimientoEmergenciaPageState extends State<SeguimientoEmergenciaPage> {
     }
   }
 
-  void _procesarMensajeWebSocket(Map<String, dynamic> data) {
-    final tipo = data['tipo'] as String?;
+  void _procesarMensajeWebSocket(Map<String, dynamic> data) async {
+    // El backend envía "type", pero también puede venir "tipo" para compatibilidad
+    final tipo = data['type'] as String? ?? data['tipo'] as String?;
 
     if (tipo == 'ubicacion_ambulancia') {
       final latitud = data['latitud'] as double?;
@@ -114,14 +133,57 @@ class _SeguimientoEmergenciaPageState extends State<SeguimientoEmergenciaPage> {
       return;
     }
 
+    // Procesar mensajes de estado para detectar cuando cambia a VALORADA o AMBULANCIA_ASIGNADA
+    if (tipo == 'estado_actualizado' || tipo == null) {
+      final datos = data['data'] as Map<String, dynamic>?;
+      if (datos != null) {
+        final estado = datos['estado'] as String?;
+        if (estado != null) {
+          // Extraer la hora del mensaje si viene
+          final fechaHoraStr = datos['fechaHora'] as String?;
+          
+          // Actualizar el estado en storage para que se guarden las horas
+          await _storage.updateEstadoEmergenciaActiva(
+            estado,
+            fechaHora: fechaHoraStr,
+          );
+          
+          // Marcar si el estado es AMBULANCIA_ASIGNADA para capturar la primera ubicación
+          if (estado.toUpperCase() == 'AMBULANCIA_ASIGNADA' && !_estadoDespachado) {
+            _estadoDespachado = true;
+            print('[DEBUG] Estado cambiado a AMBULANCIA_ASIGNADA, esperando primera ubicación');
+            
+            // Si ya tenemos una ubicación guardada (llegó antes del cambio de estado), guardarla ahora
+            if (_primeraUbicacionLat != null && _primeraUbicacionLng != null && !_ubicacionDespachoGuardada) {
+              await _guardarUbicacionDespacho(_primeraUbicacionLat!, _primeraUbicacionLng!);
+              print('[DEBUG] Guardando ubicación que llegó antes del cambio de estado');
+            }
+          }
+        }
+      }
+    }
+
     // Pasar otros mensajes al callback original si existe
     _originalCallback?.call(data);
   }
 
-  void _actualizarUbicacionAmbulancia(double lat, double lng) {
+  void _actualizarUbicacionAmbulancia(double lat, double lng) async {
     if (!mounted) return;
 
     final ahora = DateTime.now();
+    
+    // Guardar la primera ubicación recibida (por si llega antes del cambio de estado)
+    if (_primeraUbicacionLat == null && _primeraUbicacionLng == null) {
+      _primeraUbicacionLat = lat;
+      _primeraUbicacionLng = lng;
+      print('[DEBUG] Primera ubicación recibida: lat=$lat, lng=$lng');
+    }
+    
+    // Guardar ubicación de despacho si es la primera vez que recibimos ubicación
+    // y el estado es AMBULANCIA_ASIGNADA (hacer esto fuera del setState)
+    if (!_ubicacionDespachoGuardada) {
+      await _guardarUbicacionDespacho(lat, lng);
+    }
 
     setState(() {
       // Calcular velocidad si tenemos un punto anterior
@@ -134,6 +196,9 @@ class _SeguimientoEmergenciaPageState extends State<SeguimientoEmergenciaPage> {
           LatLng(_ultimaLat!, _ultimaLng!),
           LatLng(lat, lng),
         );
+
+        // Acumular desplazamiento total
+        _desplazamientoTotal += distanciaEntrePuntos;
 
         // Calcular tiempo transcurrido en segundos
         final tiempoTranscurrido =
@@ -195,11 +260,26 @@ class _SeguimientoEmergenciaPageState extends State<SeguimientoEmergenciaPage> {
     });
   }
 
+  Future<void> _guardarUbicacionDespacho(double lat, double lng) async {
+    if (_ubicacionDespachoGuardada) return;
+    
+    // Guardar la primera ubicación recibida después de que el estado sea AMBULANCIA_ASIGNADA
+    // Usar el flag _estadoDespachado que se actualiza cuando se recibe el cambio de estado
+    if (_estadoDespachado) {
+      await _storage.saveUbicacionDespachoAmbulancia(lat, lng);
+      _ubicacionDespachoGuardada = true;
+      print('[DEBUG] Ubicación de despacho guardada: lat=$lat, lng=$lng');
+    }
+  }
+
   Future<void> _finalizarSeguimiento() async {
     // Obtener id de emergencia antes de limpiar
     final emergenciaActiva = await _storage.getEmergenciaActiva();
     final idEmergencia = emergenciaActiva?['id_emergencia'] as int? ??
         emergenciaActiva?['id'] as int?;
+
+    // Imprimir estadísticas en consola
+    _imprimirEstadisticas(emergenciaActiva);
 
     // Enviar mensaje de emergencia finalizada al servidor
     if (idEmergencia != null && idEmergencia > 0) {
@@ -227,6 +307,74 @@ class _SeguimientoEmergenciaPageState extends State<SeguimientoEmergenciaPage> {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  void _imprimirEstadisticas(Map<String, dynamic>? emergenciaActiva) {
+    print('═══════════════════════════════════════════════════════════');
+    print('📊 ESTADÍSTICAS DE LA EMERGENCIA');
+    print('═══════════════════════════════════════════════════════════');
+    
+    // Hora de inicio de la solicitud
+    final fechaInicio = emergenciaActiva?['fecha'] as DateTime?;
+    if (fechaInicio != null) {
+      print('🕐 Hora de inicio de la solicitud: ${fechaInicio.toString()}');
+    } else {
+      print('🕐 Hora de inicio de la solicitud: No disponible');
+    }
+    
+    // Hora de notificación valorada
+    final horaValorada = emergenciaActiva?['hora_valorada'] as DateTime?;
+    if (horaValorada != null) {
+      print('⚕️ Hora de notificación VALORADA: ${horaValorada.toString()}');
+    } else {
+      // Si no está disponible, usar la hora del sistema como fallback
+      // (aunque idealmente debería estar guardada)
+      final horaFallback = DateTime.now();
+      print('⚕️ Hora de notificación VALORADA: No disponible (usando hora actual: ${horaFallback.toString()})');
+    }
+    
+    // Hora de notificación despachada
+    final horaDespachada = emergenciaActiva?['hora_despachada'] as DateTime?;
+    if (horaDespachada != null) {
+      print('🚑 Hora de notificación DESPACHADA: ${horaDespachada.toString()}');
+    } else {
+      // Si no está disponible, usar la hora del sistema como fallback
+      // (aunque idealmente debería estar guardada)
+      final horaFallback = DateTime.now();
+      print('🚑 Hora de notificación DESPACHADA: No disponible (usando hora actual: ${horaFallback.toString()})');
+    }
+    
+    // Hora de llegada de la ambulancia
+    final horaLLegada = DateTime.now();
+    print('✅ Hora de llegada de la ambulancia: ${horaLLegada.toString()}');
+    
+    // Ubicación de la solicitud
+    final latSolicitud = emergenciaActiva?['latitud'] as double?;
+    final lngSolicitud = emergenciaActiva?['longitud'] as double?;
+    if (latSolicitud != null && lngSolicitud != null) {
+      print('📍 Ubicación de la solicitud: Lat: $latSolicitud, Lng: $lngSolicitud');
+    } else {
+      print('📍 Ubicación de la solicitud: No disponible');
+    }
+    
+    // Ubicación de la ambulancia cuando fue despachada
+    final latDespacho = emergenciaActiva?['ubicacion_despacho_lat'] as double?;
+    final lngDespacho = emergenciaActiva?['ubicacion_despacho_lng'] as double?;
+    if (latDespacho != null && lngDespacho != null) {
+      print('🚑 Ubicación de la ambulancia cuando fue despachada: Lat: $latDespacho, Lng: $lngDespacho');
+    } else {
+      print('🚑 Ubicación de la ambulancia cuando fue despachada: No disponible');
+    }
+    
+    // Desplazamiento total
+    if (_desplazamientoTotal > 0) {
+      final desplazamientoKm = _desplazamientoTotal / 1000.0;
+      print('📏 Desplazamiento total de la ambulancia: ${_desplazamientoTotal.toStringAsFixed(2)} m (${desplazamientoKm.toStringAsFixed(2)} km)');
+    } else {
+      print('📏 Desplazamiento total de la ambulancia: No disponible');
+    }
+    
+    print('═══════════════════════════════════════════════════════════');
   }
 
   @override

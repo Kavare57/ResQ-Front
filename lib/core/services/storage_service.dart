@@ -16,6 +16,14 @@ class StorageService {
   static const _emergenciaActivaFlagKey = 'emergencia_activa_flag';
   static const _emergenciaActivaLatKey = 'emergencia_activa_lat';
   static const _emergenciaActivaLngKey = 'emergencia_activa_lng';
+  static const _emergenciaActivaHoraValoradaKey =
+      'emergencia_activa_hora_valorada';
+  static const _emergenciaActivaHoraDespachadaKey =
+      'emergencia_activa_hora_despachada';
+  static const _emergenciaActivaUbicacionDespachoLatKey =
+      'emergencia_activa_ubicacion_despacho_lat';
+  static const _emergenciaActivaUbicacionDespachoLngKey =
+      'emergencia_activa_ubicacion_despacho_lng';
 
   Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -141,6 +149,13 @@ class StorageService {
     final fechaStr = prefs.getString(_emergenciaActivaFechaKey);
     final latitud = prefs.getDouble(_emergenciaActivaLatKey);
     final longitud = prefs.getDouble(_emergenciaActivaLngKey);
+    final horaValoradaStr = prefs.getString(_emergenciaActivaHoraValoradaKey);
+    final horaDespachadaStr =
+        prefs.getString(_emergenciaActivaHoraDespachadaKey);
+    final ubicacionDespachoLat =
+        prefs.getDouble(_emergenciaActivaUbicacionDespachoLatKey);
+    final ubicacionDespachoLng =
+        prefs.getDouble(_emergenciaActivaUbicacionDespachoLngKey);
 
     // Solo mostrar el recuadro si hay un ID de emergencia válido (no null y no 0)
     // El id_solicitud se pone en 0 cuando llega el id_emergencia
@@ -164,12 +179,57 @@ class StorageService {
       'fecha': DateTime.parse(fechaStr),
       'latitud': latitud,
       'longitud': longitud,
+      'hora_valorada':
+          horaValoradaStr != null ? DateTime.parse(horaValoradaStr) : null,
+      'hora_despachada':
+          horaDespachadaStr != null ? DateTime.parse(horaDespachadaStr) : null,
+      'ubicacion_despacho_lat': ubicacionDespachoLat,
+      'ubicacion_despacho_lng': ubicacionDespachoLng,
     };
   }
 
-  Future<void> updateEstadoEmergenciaActiva(String estado) async {
+  Future<void> updateEstadoEmergenciaActiva(String estado,
+      {String? fechaHora}) async {
     final prefs = await SharedPreferences.getInstance();
+    final estadoAnterior = prefs.getString(_emergenciaActivaEstadoKey);
     await prefs.setString(_emergenciaActivaEstadoKey, estado);
+
+    // Guardar tiempo cuando se recibe notificación de VALORADA
+    // Solo guardar si no existe ya y si el estado cambió a VALORADA
+    if ((estado.toUpperCase() == 'VALORADA' ||
+            estado.toUpperCase() == 'EMERGENCIA_VALORADA') &&
+        (estadoAnterior == null ||
+            (estadoAnterior.toUpperCase() != 'VALORADA' &&
+                estadoAnterior.toUpperCase() != 'EMERGENCIA_VALORADA'))) {
+      final horaValoradaExistente =
+          prefs.getString(_emergenciaActivaHoraValoradaKey);
+      if (horaValoradaExistente == null) {
+        // Usar la hora del mensaje si viene, sino usar la hora actual
+        final horaAGuardar = fechaHora ?? DateTime.now().toIso8601String();
+        await prefs.setString(_emergenciaActivaHoraValoradaKey, horaAGuardar);
+      }
+    }
+
+    // Guardar tiempo cuando se recibe notificación de AMBULANCIA_ASIGNADA (despachada)
+    // Solo guardar si no existe ya y si el estado cambió a AMBULANCIA_ASIGNADA
+    if (estado.toUpperCase() == 'AMBULANCIA_ASIGNADA' &&
+        (estadoAnterior == null ||
+            estadoAnterior.toUpperCase() != 'AMBULANCIA_ASIGNADA')) {
+      final horaDespachadaExistente =
+          prefs.getString(_emergenciaActivaHoraDespachadaKey);
+      if (horaDespachadaExistente == null) {
+        // Usar la hora del mensaje si viene, sino usar la hora actual
+        final horaAGuardar = fechaHora ?? DateTime.now().toIso8601String();
+        await prefs.setString(_emergenciaActivaHoraDespachadaKey, horaAGuardar);
+      }
+    }
+  }
+
+  Future<void> saveUbicacionDespachoAmbulancia(
+      double latitud, double longitud) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_emergenciaActivaUbicacionDespachoLatKey, latitud);
+    await prefs.setDouble(_emergenciaActivaUbicacionDespachoLngKey, longitud);
   }
 
   Future<void> clearEmergenciaActiva() async {
@@ -180,6 +240,10 @@ class StorageService {
     await prefs.remove(_emergenciaActivaFechaKey);
     await prefs.remove(_emergenciaActivaLatKey);
     await prefs.remove(_emergenciaActivaLngKey);
+    await prefs.remove(_emergenciaActivaHoraValoradaKey);
+    await prefs.remove(_emergenciaActivaHoraDespachadaKey);
+    await prefs.remove(_emergenciaActivaUbicacionDespachoLatKey);
+    await prefs.remove(_emergenciaActivaUbicacionDespachoLngKey);
     await prefs.setBool(_emergenciaActivaFlagKey, false);
   }
 

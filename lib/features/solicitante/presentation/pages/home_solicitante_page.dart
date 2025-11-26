@@ -192,7 +192,8 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage>
       // Configurar callbacks antes de conectar
       _wsSolicitanteService.onMensajeRecibido =
           (Map<String, dynamic> data) async {
-        final tipo = data['tipo'] as String?;
+        // El backend envía "type", pero también puede venir "tipo" para compatibilidad
+        final tipo = data['type'] as String? ?? data['tipo'] as String?;
 
         // Procesar mensajes de ubicación de ambulancia
         if (tipo == 'ubicacion_ambulancia') {
@@ -208,6 +209,16 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage>
           final estado = datos['estado'] as String?;
           final idEmergencia =
               datos['id'] as int?; // El ID en el mensaje es el id_emergencia
+          // Extraer la hora del mensaje si viene
+          final fechaHoraStr = datos['fechaHora'] as String?;
+          DateTime? fechaHora;
+          if (fechaHoraStr != null) {
+            try {
+              fechaHora = DateTime.parse(fechaHoraStr);
+            } catch (e) {
+              // Si no se puede parsear, usar null
+            }
+          }
 
           // Si viene el ID de emergencia, actualizar la emergencia activa
           if (idEmergencia != null && idEmergencia != 0) {
@@ -223,7 +234,7 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage>
                 idSolicitud: 0, // Poner en 0 cuando llega id_emergencia
                 idEmergencia: idEmergenciaFinal,
                 estado: estado ?? 'creada',
-                fecha: DateTime.now(),
+                fecha: fechaHora ?? DateTime.now(),
               );
 
               // Conectar websocket si no está conectado (porque ahora hay emergencia activa)
@@ -234,7 +245,11 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage>
               // Actualizar: poner id_solicitud en 0 y guardar id_emergencia
               await _storage.updateIdEmergenciaActiva(idEmergenciaFinal);
               if (estado != null) {
-                await _storage.updateEstadoEmergenciaActiva(estado);
+                // Pasar la hora del mensaje si está disponible
+                await _storage.updateEstadoEmergenciaActiva(
+                  estado,
+                  fechaHora: fechaHoraStr,
+                );
               }
             }
 
@@ -255,7 +270,12 @@ class _HomeSolicitantePageState extends State<HomeSolicitantePage>
             // Si solo viene el estado (sin ID), actualizar si ya existe emergencia activa
             final emergenciaActual = await _storage.getEmergenciaActiva();
             if (emergenciaActual != null) {
-              await _storage.updateEstadoEmergenciaActiva(estado);
+              // Extraer la hora del mensaje si viene
+              final fechaHoraStr = datos['fechaHora'] as String?;
+              await _storage.updateEstadoEmergenciaActiva(
+                estado,
+                fechaHora: fechaHoraStr,
+              );
               if (mounted) {
                 setState(() {
                   _emergenciaActiva!['estado'] = estado;
